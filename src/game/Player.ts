@@ -68,8 +68,12 @@ export class Player {
   // Movement state
   private lastX = this.x;
   private lastY = this.y;
+  private vx = 0;
+  private vy = 0;
   private dashDirection = { x: 0, y: 0 };
   private isDashing = false;
+  private dashInvulnTimer = 0;
+  private warpInvulnTimer = 0;
   
   update(dt: number, keys: Set<string>) {
     if (!this.alive) return;
@@ -105,6 +109,14 @@ export class Player {
     this.cooldown -= dt;
     this.dashCooldown -= dt;
     this.warpCooldown -= dt;
+    
+    // Update invulnerability timers
+    if (this.dashInvulnTimer > 0) {
+      this.dashInvulnTimer -= dt;
+    }
+    if (this.warpInvulnTimer > 0) {
+      this.warpInvulnTimer -= dt;
+    }
     
     // Update phase shift
     if (this.phaseShiftActive) {
@@ -151,15 +163,60 @@ export class Player {
       dy = this.dashDirection.y;
     }
     
-    // Update position
-    this.x += dx * this.speed * speedMultiplier * dt;
-    this.y += dy * (this.speed * 0.9) * speedMultiplier * dt;
+    // Apply acceleration/deceleration
+    const targetVX = dx * this.speed * speedMultiplier;
+    const targetVY = dy * this.speed * speedMultiplier * SPEED.PLAYER_VERTICAL_MULT;
     
-    // Bounds checking
-    this.x = Math.max(0, Math.min(COLS*CELL - this.w, this.x));
-    const minY = (ROWS-PLAYER_ROWS)*CELL - this.h - 2;
-    const maxY = (ROWS-1)*CELL - this.h - 2;
-  this.y = Math.max(minY, Math.min(maxY, this.y));
+    if (this.phaseShiftActive) {
+      // During phase shift, increase momentum
+      this.vx += (targetVX - this.vx) * WEAPONS.PHASE_SHIFT.MOMENTUM_MULT * dt;
+      this.vy += (targetVY - this.vy) * WEAPONS.PHASE_SHIFT.MOMENTUM_MULT * dt;
+    } else if (dx !== 0 || dy !== 0) {
+      // Accelerate towards target velocity
+      const accel = SPEED.PLAYER_ACCEL * dt;
+      this.vx += Math.sign(targetVX - this.vx) * accel;
+      this.vy += Math.sign(targetVY - this.vy) * accel;
+    } else {
+      // Decelerate when no input
+      const decel = SPEED.PLAYER_DECEL * dt;
+      this.vx = Math.abs(this.vx) <= decel ? 0 : this.vx - Math.sign(this.vx) * decel;
+      this.vy = Math.abs(this.vy) <= decel ? 0 : this.vy - Math.sign(this.vy) * decel;
+    }
+    
+    // Apply momentum decay
+    this.vx *= PLAYER_MECHANICS.MOMENTUM_DECAY;
+    this.vy *= PLAYER_MECHANICS.MOMENTUM_DECAY;
+    
+    // Clamp velocities
+    const maxVel = PLAYER_MECHANICS.MAX_VELOCITY;
+    this.vx = Math.max(-maxVel, Math.min(maxVel, this.vx));
+    this.vy = Math.max(-maxVel, Math.min(maxVel, this.vy));
+    
+    // Update position
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+    
+    // Bounds checking with momentum preservation
+    const minX = 0;
+    const maxX = COLS * CELL - this.w;
+    const minY = (ROWS - PLAYER_ROWS) * CELL - this.h - 2;
+    const maxY = (ROWS - 1) * CELL - this.h - 2;
+    
+    if (this.x < minX) {
+      this.x = minX;
+      this.vx = Math.max(0, this.vx); // Preserve only positive momentum
+    } else if (this.x > maxX) {
+      this.x = maxX;
+      this.vx = Math.min(0, this.vx); // Preserve only negative momentum
+    }
+    
+    if (this.y < minY) {
+      this.y = minY;
+      this.vy = Math.max(0, this.vy);
+    } else if (this.y > maxY) {
+      this.y = maxY;
+      this.vy = Math.min(0, this.vy);
+    }
   }
   
   private handleSpecialAbilities(dt: number, keys: Set<string>) {
@@ -206,39 +263,58 @@ export class Player {
   }
   
   private startDash() {
-    // Store current movement direction
-    const dx = this.x - this.lastX;
-    const dy = this.y - this.lastY;
-    const len = Math.sqrt(dx*dx + dy*dy);
+    // Use current velocity for dash direction if moving
+    const len = Math.sqrt(this.vx*this.vx + this.vy*this.vy);
     
     if (len > 0) {
       this.dashDirection = {
-        x: dx / len,
-        y: dy / len
+        x: this.vx / len,
+        y: this.vy / len
       };
       this.isDashing = true;
       this.dashDuration = PLAYER_MECHANICS.DASH_DURATION;
+      this.dashInvulnTimer = PLAYER_MECHANICS.DASH_INVULN;
+      
+      // Add initial dash burst
+      this.vx = this.dashDirection.x * this.speed * PLAYER_MECHANICS.DASH_SPEED;
+      this.vy = this.dashDirection.y * this.speed * PLAYER_MECHANICS.DASH_SPEED;
+      
       sfx.extra(); // Dash sound
     }
   }
   
   private warp(keys: Set<string>) {
-    // Calculate warp direction from movement keys
+    // Calculate warp direction from movement keys or current velocity
     let dx = 0, dy = 0;
+    
+    // Check for key input first
     if (keys.has('ArrowLeft')) dx -= 1;
     if (keys.has('ArrowRight')) dx += 1;
     if (keys.has('ArrowUp')) dy -= 1;
     if (keys.has('ArrowDown')) dy += 1;
     
+    // If no keys pressed, use current velocity direction
+    if (dx === 0 && dy === 0 && (this.vx !== 0 || this.vy !== 0)) {
+      const len = Math.sqrt(this.vx*this.vx + this.vy*this.vy);
+      dx = this.vx / len;
+      dy = this.vy / len;
+    }
+    
     if (dx !== 0 || dy !== 0) {
-      // Normalize direction
-      const len = Math.sqrt(dx*dx + dy*dy);
-      dx /= len;
-      dy /= len;
+      // Normalize direction if from keys
+      if (Math.abs(dx) + Math.abs(dy) > 1) {
+        const len = Math.sqrt(dx*dx + dy*dy);
+        dx /= len;
+        dy /= len;
+      }
       
       // Calculate new position
       const newX = this.x + dx * WEAPONS.WARP.RANGE;
       const newY = this.y + dy * WEAPONS.WARP.RANGE;
+      
+      // Store pre-warp velocity
+      const preVX = this.vx;
+      const preVY = this.vy;
       
       // Bounds checking
       this.x = Math.max(0, Math.min(COLS*CELL - this.w, newX));
@@ -246,9 +322,15 @@ export class Player {
       const maxY = (ROWS-1)*CELL - this.h - 2;
       this.y = Math.max(minY, Math.min(maxY, newY));
       
+      // Preserve momentum in warp direction
+      const speed = Math.sqrt(preVX*preVX + preVY*preVY);
+      this.vx = dx * speed * 1.2; // Slight speed boost after warp
+      this.vy = dy * speed * 1.2;
+      
       // Apply costs and cooldowns
       this.energy -= WEAPONS.WARP.ENERGY_COST;
       this.warpCooldown = WEAPONS.WARP.COOLDOWN;
+      this.warpInvulnTimer = WEAPONS.WARP.INVULN_TIME;
       sfx.extra(); // Warp sound
     }
   }
