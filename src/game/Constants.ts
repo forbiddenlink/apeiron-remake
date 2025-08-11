@@ -1,0 +1,160 @@
+export const CELL = 16;           // px
+export const COLS = 40;           // 640/16
+export const ROWS = 50;           // 800/16
+export const PLAYER_ROWS = 4;     // player zone rows at bottom
+
+export const SCORE = {
+  // Base scores
+  SEGMENT: 10,
+  HEAD: 100,
+  FLEA: 200,
+  SPIDER_NEAR: 900,
+  SPIDER_MED: 600,
+  SPIDER_FAR: 300,
+  SCORPION: 1000,
+  MUSHROOM_HIT: 1,
+  MUSHROOM_CLEAR_BONUS: 4,
+  
+  // Chain bonuses
+  CHAIN_MULTIPLIER: 1.5,    // Each chain hit increases score by 50%
+  MAX_CHAIN: 8,             // Maximum chain multiplier
+  CHAIN_TIMEOUT: 2.0,       // Seconds before chain resets
+  
+  // Special bonuses
+  PERFECT_CLEAR: 5000,      // Clearing level without losing mushrooms
+  SPEED_CLEAR: 2000,        // Clearing level under par time
+  NO_HIT: 3000,             // Clearing level without taking damage
+  MEGA_BLAST_MULTI: 500,    // Hitting multiple targets with mega blast
+  PHASE_KILL: 1000,         // Killing enemy while phase shifted
+  
+  // Level bonuses
+  LEVEL_COMPLETION: 1000,   // Base bonus for completing a level
+  LEVEL_MULTIPLIER: 0.5,    // Each level adds 50% to scores
+  MUSHROOM_FIELD_BONUS: 100 // Bonus per remaining mushroom
+} as const;
+
+// Scoring mechanics
+export const SCORING = {
+  COMBO_WINDOW: 0.8,        // Seconds between hits to maintain combo
+  MAX_COMBO: 16,           // Maximum combo multiplier
+  COMBO_DECAY: 0.2,        // Seconds before combo starts decaying
+  COMBO_DECAY_RATE: 2.0,   // How fast combo decays
+  
+  CHAIN_REQUIREMENTS: {     // Hits needed for each chain level
+    2: 3,  // 3 hits for 2x
+    3: 5,  // 5 hits for 3x
+    4: 8,  // 8 hits for 4x
+    5: 12, // 12 hits for 5x
+    6: 16, // 16 hits for 6x
+    7: 20, // 20 hits for 7x
+    8: 25  // 25 hits for 8x
+  },
+  
+  // Time par scores for each level group
+  PAR_TIMES: {
+    EASY: 45,    // Levels 1-5
+    MEDIUM: 60,  // Levels 6-10
+    HARD: 75,    // Levels 11-15
+    EXPERT: 90   // Levels 16+
+  }
+} as const;
+
+export const EXTRA_LIFE_STEP = 12000; // award at 12k, 24k, ...
+
+// base speeds (cells/sec or px/sec)
+export const SPEED = {
+  CENTIPEDE_CELLS_PER_SEC: 8,
+  BULLET_PX_PER_SEC: 640,
+  PLAYER_PX_PER_SEC: 320,
+  SPIDER_PX_PER_SEC_X: 160,
+  SPIDER_PX_PER_SEC_Y: 120,
+  FLEA_PX_PER_SEC_Y: 220,
+  SCORPION_PX_PER_SEC_X: 140
+} as const;
+
+export const TIMERS = {
+  FIXED_DT: 1/60,
+  FIRE_COOLDOWN: 0.18,
+  AUTOFIRE_COOLDOWN: 0.06,
+  SPAWN_SPIDER_MIN: 3.5,
+  SPAWN_SPIDER_MAX: 7.5,
+  SPAWN_FLEA_COOLDOWN: 2.0,
+  SPAWN_SCORPION_MIN: 6.0,
+  SPAWN_SCORPION_MAX: 12.0,
+  COIN_SPAWN_MIN: 10.0,
+  COIN_SPAWN_MAX: 20.0
+} as const;
+
+export const DENSITY = {
+  PLAYER_ROWS_MIN_MUSHES: 5 // if fewer than this across last PLAYER_ROWS, spawn Flea
+} as const;
+
+export const VISUAL = {
+  SCANLINES: true,
+  FRAME: false,
+  PLAYER_ZONE_LINE: false,
+} as const;
+
+export const POWERUPS = {
+  // Duration in seconds for each power-up
+  AUTOFIRE_DURATION: 8.0,
+  SPREAD_SHOT_DURATION: 10.0,
+  RAPID_FIRE_DURATION: 12.0,
+  ENERGY_SHIELD_DURATION: 6.0,
+  WARP_SPEED_DURATION: 15.0,
+  PHASE_SHIFT_DURATION: 5.0,
+  MEGA_BLAST_DURATION: 8.0,
+  
+  // Power-up effects
+  SPREAD_SHOT_ANGLE: 25, // degrees
+  RAPID_FIRE_MULTIPLIER: 2.5,
+  SHIELD_FLASH_RATE: 0.1,
+  WARP_SPEED_MULTIPLIER: 1.5,
+  PHASE_SHIFT_COOLDOWN: 1.0, // seconds between warps
+  MEGA_BLAST_RADIUS: 80, // pixels
+  
+  // Spawn settings
+  SPAWN_CHANCE: 0.3, // 30% chance for enemies to drop power-ups
+  MAX_ACTIVE: 3, // Maximum number of power-ups that can be active at once
+  
+  // Power-up types
+  TYPES: ['autofire', 'spread', 'rapid', 'shield', 'warp', 'phase', 'mega'] as const
+} as const;
+
+// Special weapon mechanics
+export const WEAPONS = {
+  WARP: {
+    RANGE: CELL * 5, // Maximum warp distance
+    COOLDOWN: 0.5,   // Base cooldown between warps
+    ENERGY_COST: 20  // Energy cost per warp
+  },
+  PHASE_SHIFT: {
+    DURATION: 0.5,   // Duration of phase shift invulnerability
+    TRAIL_RATE: 0.05 // Rate of trail particle emission
+  },
+  MEGA_BLAST: {
+    CHARGE_TIME: 0.8,    // Time to charge mega blast
+    BLAST_RADIUS: 100,   // Blast radius in pixels
+    DAMAGE_FALLOFF: 0.5  // Damage reduction per distance unit
+  }
+} as const;
+
+// Player mechanics
+export const PLAYER_MECHANICS = {
+  MAX_ENERGY: 100,
+  ENERGY_REGEN: 10,    // Energy points per second
+  DASH_SPEED: 2.5,     // Multiplier for dash speed
+  DASH_DURATION: 0.2,  // Seconds
+  DASH_COOLDOWN: 0.5,  // Seconds between dashes
+  CHARGE_RATE: 50,     // Charge points per second
+  MAX_CHARGE: 100      // Maximum charge level
+} as const;
+
+// Power-up colors for visual effects
+export const POWERUP_COLORS = {
+  autofire: '#ffd700', // Gold
+  spread: '#ff4081',   // Pink
+  rapid: '#40c4ff',    // Blue
+  shield: '#64ffda',   // Teal
+  warp: '#b388ff'      // Purple
+} as const;
