@@ -1,0 +1,75 @@
+{
+  "github.copilot.enable": {
+    "*": true
+  },
+  "github.copilot.editor.enableAutoCompletions": true,
+  "github.copilot.inlineSuggest.enable": true,
+  "github.copilot.advanced": {
+    "indentationMode": {
+      "*": "maintain"
+    }
+  },
+  "github.copilot.conversation": {
+    "context": {
+      "description": "This is a remake of the classic 1994 Ambrosia Software game 'Apeiron', a Centipede-style arcade game. The goal is to exactly match the original game's mechanics, visuals, and feel.",
+      "architecture": {
+        "engine": "Custom game engine using HTML5 Canvas",
+        "framework": "React + TypeScript",
+        "rendering": "Procedural graphics (no external assets)",
+        "audio": "WebAudio API for synthesized sound effects",
+        "state": "Deterministic fixed-timestep (60Hz)"
+      },
+      "gameElements": {
+        "player": {
+          "weapon": "XQJ-37 plasma blaster",
+          "abilities": ["dash", "ghost mode", "nuke"],
+          "movement": "Grid-quantized with momentum"
+        },
+        "enemies": {
+          "pentipede": "Crystal-structured segmented enemy (main)",
+          "groucho": "Crystal flea that drops mushrooms",
+          "larry": "Crystal spider with chase behavior",
+          "gordon": "Crystal scorpion that poisons mushrooms",
+          "ufo": "Destroys mushrooms in its path"
+        },
+        "powerups": {
+          "name": "Yummies",
+          "types": [
+            "machine_gun",
+            "guided_shot",
+            "triple_shot",
+            "shield",
+            "speed_boost",
+            "ghost_mode",
+            "nuke"
+          ]
+        }
+      },
+      "visualStyle": {
+        "theme": "Neon crystalline with energy effects",
+        "effects": [
+          "Plasma background",
+          "Glowing grid lines",
+          "Energy trails",
+          "Crystal structures",
+          "Particle systems"
+        ]
+      },
+      "configuration": {
+        "system": "Centralized GameConfig.ts",
+        "categories": [
+          "GRID",
+          "SCORE",
+          "SCORING",
+          "XQJ37_BLASTER",
+          "PLAYER",
+          "ENEMIES",
+          "MUSHROOMS",
+          "YUMMIES",
+          "VISUAL",
+          "DEBUG"
+        ]
+      }
+    }
+  }
+}

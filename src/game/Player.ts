@@ -1,69 +1,134 @@
-import { CELL, COLS, ROWS, PLAYER_ROWS, SPEED, TIMERS, POWERUPS, WEAPONS, PLAYER_MECHANICS } from './Constants';
+import { GRID, XQJ37_BLASTER, PLAYER, YUMMIES } from './GameConfig';
 import type { Rect } from './Types';
 import { sfx } from './AudioSynth';
 
-export type PowerUpType = typeof POWERUPS.TYPES[number];
+export type YummyType = keyof typeof YUMMIES.DURATIONS;
 
 export class Bullet {
   x = 0; y = 0; active = false;
-  vx = 0; vy = -SPEED.BULLET_PX_PER_SEC * 1.05;
+  vx = 0; vy = -XQJ37_BLASTER.PROJECTILE_SPEED;
   damage = 1;
-  isMegaBlast = false;
+  isNuke = false;
+  isGuided = false;
+  private angle = 0;
+  private target: { x: number, y: number } | null = null;
   
-  constructor(angle = 0, damage = 1, isMegaBlast = false) {
+  constructor(angle = 0, damage = 1, isNuke = false, isGuided = false) {
     if (angle !== 0) {
+      this.angle = angle;
       const rad = angle * Math.PI / 180;
-      const speed = Math.sqrt(this.vy * this.vy);
+      const speed = XQJ37_BLASTER.PROJECTILE_SPEED;
       this.vx = Math.sin(rad) * speed;
       this.vy = -Math.cos(rad) * speed;
     }
     this.damage = damage;
-    this.isMegaBlast = isMegaBlast;
+    this.isNuke = isNuke;
+    this.isGuided = isGuided;
   }
   
-  update(dt: number) {
+  update(dt: number, enemies?: { x: number, y: number }[]) {
     if (!this.active) return;
+    
+    if (this.isGuided && enemies && enemies.length > 0) {
+      // Find closest enemy above the bullet
+      let closestDist = Infinity;
+      let closestEnemy = null;
+      
+      for (const enemy of enemies) {
+        if (enemy.y < this.y) { // Only target enemies above the bullet
+          const dx = enemy.x - this.x;
+          const dy = enemy.y - this.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < closestDist) {
+            closestDist = dist;
+            closestEnemy = enemy;
+          }
+        }
+      }
+      
+      if (closestEnemy) {
+        // Update target
+        this.target = closestEnemy;
+        
+        // Calculate desired angle to target
+        const dx = this.target.x - this.x;
+        const dy = this.target.y - this.y;
+        const targetAngle = Math.atan2(dx, -dy) * 180 / Math.PI;
+        
+        // Smoothly rotate towards target
+        const turnRate = XQJ37_BLASTER.GUIDED_TURN_RATE * dt;
+        let angleDiff = targetAngle - this.angle;
+        
+        // Normalize angle difference to [-180, 180]
+        while (angleDiff > 180) angleDiff -= 360;
+        while (angleDiff < -180) angleDiff += 360;
+        
+        // Apply turn rate
+        if (Math.abs(angleDiff) > turnRate) {
+          this.angle += Math.sign(angleDiff) * turnRate;
+        } else {
+          this.angle = targetAngle;
+        }
+        
+        // Update velocity based on new angle
+        const rad = this.angle * Math.PI / 180;
+        const speed = XQJ37_BLASTER.PROJECTILE_SPEED;
+        this.vx = Math.sin(rad) * speed;
+        this.vy = -Math.cos(rad) * speed;
+      }
+    }
+    
+    // Update position
     this.x += this.vx * dt;
     this.y += this.vy * dt;
-    if (this.y < -8 || this.x < -8 || this.x > COLS * CELL + 8) this.active = false;
+    
+    // Check bounds
+    if (this.y < -8 || this.x < -8 || this.x > GRID.COLS * GRID.CELL + 8) {
+      this.active = false;
+    }
   }
   
   rect(): Rect {
-    if (this.isMegaBlast) {
+    if (this.isNuke) {
       return {
-        x: this.x - WEAPONS.MEGA_BLAST.BLAST_RADIUS,
-        y: this.y - WEAPONS.MEGA_BLAST.BLAST_RADIUS,
-        w: WEAPONS.MEGA_BLAST.BLAST_RADIUS * 2,
-        h: WEAPONS.MEGA_BLAST.BLAST_RADIUS * 2
+        x: this.x - YUMMIES.DURATIONS.NUKE,
+        y: this.y - YUMMIES.DURATIONS.NUKE,
+        w: YUMMIES.DURATIONS.NUKE * 2,
+        h: YUMMIES.DURATIONS.NUKE * 2
       };
     }
     return { x: this.x, y: this.y, w: 2, h: 8 };
   }
+  
+  getAngle(): number {
+    return this.angle;
+  }
 }
 
 export class Player {
-  w = CELL * 1.2; h = CELL * 0.9;
-  x = (COLS*CELL)/2 - (this.w/2);
-  y = (ROWS-PLAYER_ROWS)*CELL - this.h - 2;
-  speed = SPEED.PLAYER_PX_PER_SEC;
+  w = PLAYER.SIZE.WIDTH;
+  h = PLAYER.SIZE.HEIGHT;
+  x = (GRID.COLS * GRID.CELL) / 2 - (this.w / 2);
+  y = (GRID.ROWS - GRID.PLAYER_ROWS) * GRID.CELL - this.h - 2;
+  speed = PLAYER.MOVEMENT.BASE_SPEED;
   cooldown = 0;
   alive = true;
-  bullets: Bullet[] = Array.from({length: 24}, () => new Bullet());
+  bullets: Bullet[] = Array.from({length: XQJ37_BLASTER.MAX_PROJECTILES * 8}, () => new Bullet());
   flashT = 0; // muzzle flash timer
 
-  // Power-up states
-  activePowerUps = new Map<PowerUpType, number>();
+  // Yummy power-up states
+  activeYummies = new Map<YummyType, number>();
   shieldFlashT = 0;
   
   // Special mechanics
-  energy = PLAYER_MECHANICS.MAX_ENERGY;
+  energy = PLAYER.ABILITIES.MAX_ENERGY;
   chargeLevel = 0;
   dashCooldown = 0;
-  warpCooldown = 0;
-  phaseShiftActive = false;
-  phaseShiftTimer = 0;
-  megaBlastCharging = false;
-  megaBlastCharge = 0;
+  dashDuration = 0;
+  ghostActive = false;
+  ghostTimer = 0;
+  nukeCharging = false;
+  nukeCharge = 0;
   
   // Movement state
   private lastX = this.x;
@@ -73,7 +138,6 @@ export class Player {
   private dashDirection = { x: 0, y: 0 };
   private isDashing = false;
   private dashInvulnTimer = 0;
-  private warpInvulnTimer = 0;
   
   update(dt: number, keys: Set<string>) {
     if (!this.alive) return;
@@ -94,45 +158,41 @@ export class Player {
   }
   
   private updateTimers(dt: number) {
-    // Update power-up timers
-    for (const [type, time] of this.activePowerUps.entries()) {
+    // Update Yummy power-up timers
+    for (const [type, time] of this.activeYummies.entries()) {
       const newTime = time - dt;
       if (newTime <= 0) {
-        this.activePowerUps.delete(type);
+        this.activeYummies.delete(type);
         sfx.extra(); // Power-up end sound
       } else {
-        this.activePowerUps.set(type, newTime);
+        this.activeYummies.set(type, newTime);
       }
     }
     
     // Update cooldowns
     this.cooldown -= dt;
     this.dashCooldown -= dt;
-    this.warpCooldown -= dt;
     
-    // Update invulnerability timers
+    // Update invulnerability timer
     if (this.dashInvulnTimer > 0) {
       this.dashInvulnTimer -= dt;
     }
-    if (this.warpInvulnTimer > 0) {
-      this.warpInvulnTimer -= dt;
-    }
     
-    // Update phase shift
-    if (this.phaseShiftActive) {
-      this.phaseShiftTimer -= dt;
-      if (this.phaseShiftTimer <= 0) {
-        this.phaseShiftActive = false;
+    // Update ghost mode
+    if (this.ghostActive) {
+      this.ghostTimer -= dt;
+      if (this.ghostTimer <= 0) {
+        this.ghostActive = false;
       }
     }
     
     // Energy regeneration
-    this.energy = Math.min(PLAYER_MECHANICS.MAX_ENERGY,
-      this.energy + PLAYER_MECHANICS.ENERGY_REGEN * dt);
+    this.energy = Math.min(PLAYER.ABILITIES.MAX_ENERGY,
+      this.energy + PLAYER.ABILITIES.ENERGY_REGEN * dt);
     
     // Shield flash effect
-    if (this.hasPowerUp('shield')) {
-      this.shieldFlashT = (this.shieldFlashT + dt) % POWERUPS.SHIELD_FLASH_RATE;
+    if (this.hasYummy('SHIELD')) {
+      this.shieldFlashT = (this.shieldFlashT + dt) % YUMMIES.VISUALS.SHIELD_FLASH_RATE;
     }
   }
   
@@ -156,39 +216,39 @@ export class Player {
     }
     
     // Apply speed modifiers
-    let speedMultiplier = this.hasPowerUp('warp') ? POWERUPS.WARP_SPEED_MULTIPLIER : 1;
+    let speedMultiplier = this.hasYummy('SPEED') ? YUMMIES.DURATIONS.SPEED_BOOST : 1;
     if (this.isDashing) {
-      speedMultiplier *= PLAYER_MECHANICS.DASH_SPEED;
+      speedMultiplier *= PLAYER.ABILITIES.DASH_SPEED;
       dx = this.dashDirection.x;
       dy = this.dashDirection.y;
     }
     
     // Apply acceleration/deceleration
     const targetVX = dx * this.speed * speedMultiplier;
-    const targetVY = dy * this.speed * speedMultiplier * SPEED.PLAYER_VERTICAL_MULT;
+    const targetVY = dy * this.speed * speedMultiplier * PLAYER.MOVEMENT.VERTICAL_MULT;
     
-    if (this.phaseShiftActive) {
-      // During phase shift, increase momentum
-      this.vx += (targetVX - this.vx) * WEAPONS.PHASE_SHIFT.MOMENTUM_MULT * dt;
-      this.vy += (targetVY - this.vy) * WEAPONS.PHASE_SHIFT.MOMENTUM_MULT * dt;
+    if (this.ghostActive) {
+      // During ghost mode, increase momentum
+      this.vx += (targetVX - this.vx) * 1.2 * dt; // Smoother movement in ghost mode
+      this.vy += (targetVY - this.vy) * 1.2 * dt;
     } else if (dx !== 0 || dy !== 0) {
       // Accelerate towards target velocity
-      const accel = SPEED.PLAYER_ACCEL * dt;
+      const accel = PLAYER.MOVEMENT.ACCEL * dt;
       this.vx += Math.sign(targetVX - this.vx) * accel;
       this.vy += Math.sign(targetVY - this.vy) * accel;
     } else {
       // Decelerate when no input
-      const decel = SPEED.PLAYER_DECEL * dt;
+      const decel = PLAYER.MOVEMENT.DECEL * dt;
       this.vx = Math.abs(this.vx) <= decel ? 0 : this.vx - Math.sign(this.vx) * decel;
       this.vy = Math.abs(this.vy) <= decel ? 0 : this.vy - Math.sign(this.vy) * decel;
     }
     
     // Apply momentum decay
-    this.vx *= PLAYER_MECHANICS.MOMENTUM_DECAY;
-    this.vy *= PLAYER_MECHANICS.MOMENTUM_DECAY;
+    this.vx *= PLAYER.MOVEMENT.MOMENTUM_DECAY;
+    this.vy *= PLAYER.MOVEMENT.MOMENTUM_DECAY;
     
     // Clamp velocities
-    const maxVel = PLAYER_MECHANICS.MAX_VELOCITY;
+    const maxVel = PLAYER.MOVEMENT.MAX_VELOCITY;
     this.vx = Math.max(-maxVel, Math.min(maxVel, this.vx));
     this.vy = Math.max(-maxVel, Math.min(maxVel, this.vy));
     
@@ -198,9 +258,9 @@ export class Player {
     
     // Bounds checking with momentum preservation
     const minX = 0;
-    const maxX = COLS * CELL - this.w;
-    const minY = (ROWS - PLAYER_ROWS) * CELL - this.h - 2;
-    const maxY = (ROWS - 1) * CELL - this.h - 2;
+    const maxX = GRID.COLS * GRID.CELL - this.w;
+    const minY = (GRID.ROWS - GRID.PLAYER_ROWS) * GRID.CELL - this.h - 2;
+    const maxY = (GRID.ROWS - 1) * GRID.CELL - this.h - 2;
     
     if (this.x < minX) {
       this.x = minX;
@@ -230,33 +290,28 @@ export class Player {
       this.dashDuration -= dt;
       if (this.dashDuration <= 0) {
         this.isDashing = false;
-        this.dashCooldown = PLAYER_MECHANICS.DASH_COOLDOWN;
+        this.dashCooldown = PLAYER.ABILITIES.DASH_COOLDOWN;
       }
     }
     
-    // Warp ability (Alt key)
-    if (keys.has('AltLeft') && this.warpCooldown <= 0 && this.energy >= WEAPONS.WARP.ENERGY_COST) {
-      this.warp(keys);
+    // Ghost mode (Control key)
+    if (keys.has('ControlLeft') && this.hasYummy('GHOST') && !this.ghostActive) {
+      this.startGhostMode();
     }
     
-    // Phase shift (Control key)
-    if (keys.has('ControlLeft') && this.hasPowerUp('phase') && !this.phaseShiftActive) {
-      this.startPhaseShift();
-    }
-    
-    // Mega blast (Hold Space)
+    // Nuke (Hold Space)
     if (keys.has('Space')) {
-      if (!this.megaBlastCharging && this.hasPowerUp('mega')) {
-        this.startMegaBlastCharge();
-      } else if (this.megaBlastCharging) {
-        this.chargeMegaBlast(dt);
+      if (!this.nukeCharging && this.hasYummy('NUKE')) {
+        this.startNukeCharge();
+      } else if (this.nukeCharging) {
+        this.chargeNuke(dt);
       }
-    } else if (this.megaBlastCharging) {
-      this.fireMegaBlast();
+    } else if (this.nukeCharging) {
+      this.fireNuke();
     }
     
     // Normal weapon handling
-    if (keys.has('Space') && this.cooldown <= 0 && !this.megaBlastCharging) {
+    if (keys.has('Space') && this.cooldown <= 0 && !this.nukeCharging) {
       this.fire();
       this.cooldown = this.getFireCooldown();
     }
@@ -335,63 +390,64 @@ export class Player {
     }
   }
   
-  private startPhaseShift() {
-    this.phaseShiftActive = true;
-    this.phaseShiftTimer = WEAPONS.PHASE_SHIFT.DURATION;
-    sfx.extra(); // Phase shift sound
+  private startGhostMode() {
+    this.ghostActive = true;
+    this.ghostTimer = YUMMIES.DURATIONS.GHOST_MODE;
+    sfx.extra(); // Ghost mode sound
   }
   
-  private startMegaBlastCharge() {
-    this.megaBlastCharging = true;
-    this.megaBlastCharge = 0;
+  private startNukeCharge() {
+    this.nukeCharging = true;
+    this.nukeCharge = 0;
     sfx.extra(); // Start charge sound
   }
   
-  private chargeMegaBlast(dt: number) {
-    this.megaBlastCharge = Math.min(
-      PLAYER_MECHANICS.MAX_CHARGE,
-      this.megaBlastCharge + PLAYER_MECHANICS.CHARGE_RATE * dt
+  private chargeNuke(dt: number) {
+    this.nukeCharge = Math.min(
+      100, // Max charge
+      this.nukeCharge + 50 * dt // Charge rate
     );
   }
   
-  private fireMegaBlast() {
-    if (this.megaBlastCharge >= PLAYER_MECHANICS.MAX_CHARGE) {
+  private fireNuke() {
+    if (this.nukeCharge >= 100) {
       const b = this.bullets.find(bb => !bb.active);
       if (b) {
         b.active = true;
         b.x = this.x + this.w/2;
         b.y = this.y - 6;
         b.vx = 0;
-        b.vy = -SPEED.BULLET_PX_PER_SEC;
-        b.damage = 5;
-        b.isMegaBlast = true;
+        b.vy = -XQJ37_BLASTER.PROJECTILE_SPEED;
+        b.damage = 10;
+        b.isNuke = true;
         this.flashT = 0.1;
-        sfx.extra(); // Mega blast sound
+        sfx.extra(); // Nuke blast sound
       }
     }
-    this.megaBlastCharging = false;
-    this.megaBlastCharge = 0;
+    this.nukeCharging = false;
+    this.nukeCharge = 0;
   }
   }
   
   fire() {
-    if (this.hasPowerUp('spread')) {
-      // Spread shot: fire 3 bullets in a spread pattern
-      const angles = [-POWERUPS.SPREAD_SHOT_ANGLE, 0, POWERUPS.SPREAD_SHOT_ANGLE];
+    if (this.hasYummy('TRIPLE')) {
+      // Triple shot pattern
+      const angles = [-XQJ37_BLASTER.TRIPLE_SHOT_ANGLE, 0, XQJ37_BLASTER.TRIPLE_SHOT_ANGLE];
       for (const angle of angles) {
         const b = this.bullets.find(bb => !bb.active);
         if (!b) continue;
         b.active = true;
         b.x = this.x + this.w/2 - 1;
         b.y = this.y - 6;
+        b.isGuided = this.hasYummy('GUIDED');
         if (angle !== 0) {
           const rad = angle * Math.PI / 180;
-          const speed = SPEED.BULLET_PX_PER_SEC * 1.05;
+          const speed = XQJ37_BLASTER.PROJECTILE_SPEED;
           b.vx = Math.sin(rad) * speed;
           b.vy = -Math.cos(rad) * speed;
         } else {
           b.vx = 0;
-          b.vy = -SPEED.BULLET_PX_PER_SEC * 1.05;
+          b.vy = -XQJ37_BLASTER.PROJECTILE_SPEED;
         }
       }
     } else {
@@ -402,33 +458,34 @@ export class Player {
       b.x = this.x + this.w/2 - 1;
       b.y = this.y - 6;
       b.vx = 0;
-      b.vy = -SPEED.BULLET_PX_PER_SEC * 1.05;
+      b.vy = -XQJ37_BLASTER.PROJECTILE_SPEED;
+      b.isGuided = this.hasYummy('GUIDED');
     }
     
-  this.flashT = 0.05;
+    this.flashT = XQJ37_BLASTER.MUZZLE_FLASH_TIME;
     sfx.shoot();
   }
 
   getFireCooldown(): number {
-    let cooldown = TIMERS.FIRE_COOLDOWN;
-    if (this.hasPowerUp('autofire')) cooldown = TIMERS.AUTOFIRE_COOLDOWN;
-    if (this.hasPowerUp('rapid')) cooldown /= POWERUPS.RAPID_FIRE_MULTIPLIER;
+    let cooldown = XQJ37_BLASTER.FIRE_RATE;
+    if (this.hasYummy('MACHINE_GUN')) {
+      cooldown = XQJ37_BLASTER.MACHINE_GUN_RATE;
+    }
     return cooldown;
   }
   
-  addPowerUp(type: PowerUpType) {
-    const duration = POWERUPS[`${type.toUpperCase()}_SHOT_DURATION` as keyof typeof POWERUPS] || 
-                    POWERUPS[`${type.toUpperCase()}_DURATION` as keyof typeof POWERUPS];
-    this.activePowerUps.set(type, duration);
-    sfx.extra();
+  addYummy(type: YummyType) {
+    const duration = YUMMIES.DURATIONS[type];
+    this.activeYummies.set(type, duration);
+    sfx.extra(); // Yummy collection sound
   }
   
-  hasPowerUp(type: PowerUpType): boolean {
-    return this.activePowerUps.has(type);
+  hasYummy(type: YummyType): boolean {
+    return this.activeYummies.has(type);
   }
   
   isShieldActive(): boolean {
-    return this.hasPowerUp('shield') && this.shieldFlashT < POWERUPS.SHIELD_FLASH_RATE / 2;
+    return this.hasYummy('SHIELD') && this.shieldFlashT < YUMMIES.VISUALS.SHIELD_FLASH_RATE / 2;
   }
   
   rect(): Rect { return { x: this.x, y: this.y, w: this.w, h: this.h }; }

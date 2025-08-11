@@ -99,29 +99,33 @@ export const VISUAL = {
 } as const;
 
 export const POWERUPS = {
-  // Duration in seconds for each power-up
-  AUTOFIRE_DURATION: 8.0,
-  SPREAD_SHOT_DURATION: 10.0,
-  RAPID_FIRE_DURATION: 12.0,
-  ENERGY_SHIELD_DURATION: 6.0,
-  WARP_SPEED_DURATION: 15.0,
-  PHASE_SHIFT_DURATION: 5.0,
-  MEGA_BLAST_DURATION: 8.0,
+  // Duration in seconds for each Yummy
+  MACHINE_GUN_DURATION: 10.0,    // Rapid fire mode
+  GUIDED_SHOT_DURATION: 12.0,    // Shots follow enemies
+  TRIPLE_SHOT_DURATION: 8.0,     // Three-way spread
+  SHIELD_DURATION: 6.0,          // Invulnerability
+  SPEED_BOOST_DURATION: 15.0,    // Faster movement
+  GHOST_MODE_DURATION: 5.0,      // Pass through mushrooms
+  NUKE_DURATION: 3.0,            // Screen-clearing explosion
   
   // Power-up effects
-  SPREAD_SHOT_ANGLE: 25, // degrees
-  RAPID_FIRE_MULTIPLIER: 2.5,
-  SHIELD_FLASH_RATE: 0.1,
-  WARP_SPEED_MULTIPLIER: 1.5,
-  PHASE_SHIFT_COOLDOWN: 1.0, // seconds between warps
-  MEGA_BLAST_RADIUS: 80, // pixels
+  TRIPLE_SHOT_ANGLE: 30,         // degrees between shots
+  MACHINE_GUN_RATE: 0.05,        // seconds between shots
+  GUIDED_SHOT_TURN_RATE: 180,    // degrees per second
+  SHIELD_FLASH_RATE: 0.1,        // shield flicker rate
+  SPEED_BOOST_MULT: 1.75,        // movement speed multiplier
+  GHOST_FADE_ALPHA: 0.5,         // transparency in ghost mode
+  NUKE_RADIUS: 400,             // blast radius in pixels
   
-  // Spawn settings
-  SPAWN_CHANCE: 0.3, // 30% chance for enemies to drop power-ups
-  MAX_ACTIVE: 3, // Maximum number of power-ups that can be active at once
+  // Spawn settings ("Yummies")
+  SPAWN_CHANCE: 0.2,            // 20% chance for enemies to drop Yummies
+  MAX_ACTIVE: 2,                // Maximum number of Yummies active at once
+  FADE_TIME: 0.5,              // Time for Yummies to fade in/out
+  FLOAT_AMPLITUDE: 4,          // Pixels to float up/down
+  FLOAT_SPEED: 2,             // Float cycles per second
   
-  // Power-up types
-  TYPES: ['autofire', 'spread', 'rapid', 'shield', 'warp', 'phase', 'mega'] as const
+  // Yummy types
+  TYPES: ['machine_gun', 'guided', 'triple', 'shield', 'speed', 'ghost', 'nuke'] as const
 } as const;
 
 // Special weapon mechanics
@@ -158,11 +162,13 @@ export const PLAYER_MECHANICS = {
   MAX_VELOCITY: 600      // Maximum velocity from momentum
 } as const;
 
-// Power-up colors for visual effects
+// Yummy colors for visual effects
 export const POWERUP_COLORS = {
-  autofire: '#ffd700', // Gold
-  spread: '#ff4081',   // Pink
-  rapid: '#40c4ff',    // Blue
-  shield: '#64ffda',   // Teal
-  warp: '#b388ff'      // Purple
+  machine_gun: '#ffd700',  // Gold
+  guided: '#ff1744',       // Red
+  triple: '#ff4081',       // Pink
+  shield: '#64ffda',       // Teal
+  speed: '#40c4ff',        // Blue
+  ghost: '#b388ff',        // Purple
+  nuke: '#ff9100'          // Orange
 } as const;
