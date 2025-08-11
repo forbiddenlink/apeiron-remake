@@ -1,49 +1,73 @@
-import { CELL, COLS, ROWS, PLAYER_ROWS, SPEED } from './Constants';
+import { GRID, ENEMIES } from './GameConfig';
 import { Grid } from './Grid';
 
 export interface Segment { c:number; r:number; dir:1|-1; head:boolean }
 
-export class Centipede{
+export class Centipede {
   segments: Segment[] = [];
   private acc = 0; // cells to advance
   private speed: number;
   private poisonDive = false;
-  constructor(len:number, level:number){
+  
+  constructor(len: number, level: number) {
     const startRow = 0;
-    for (let i=0;i<len;i++){
-      this.segments.push({ c: (COLS-2) - i, r:startRow, dir: 1, head: i===0 });
+    for (let i = 0; i < len; i++) {
+      this.segments.push({ 
+        c: (GRID.COLS - 2) - i, 
+        r: startRow, 
+        dir: 1, 
+        head: i === 0 
+      });
     }
-    const base = SPEED.CENTIPEDE_CELLS_PER_SEC;
-    this.speed = Math.min(base + level*0.6, base + 4);
+    const base = ENEMIES.PENTIPEDE.SPEED_CELLS_PER_SEC;
+    this.speed = Math.min(base + level * 0.6, base + 4); // Speed increases with level, caps at base + 4
   }
-  tick(dt:number, grid:Grid){
+
+  tick(dt: number, grid: Grid) {
     this.acc += this.speed * dt;
-    while (this.acc >= 1){ this.step(grid); this.acc -= 1; }
+    while (this.acc >= 1) { 
+      this.step(grid); 
+      this.acc -= 1; 
+    }
   }
-  private step(grid:Grid){
-    const prev = this.segments.map(s => ({ c:s.c, r:s.r }));
+
+  private step(grid: Grid) {
+    const prev = this.segments.map(s => ({ c: s.c, r: s.r }));
     const head = this.segments[0];
-    if (this.poisonDive){
-      head.r = Math.min(ROWS - PLAYER_ROWS - 1, head.r + 1);
-      if (head.r >= ROWS - PLAYER_ROWS - 1){ this.poisonDive = false; }
+    const maxRow = GRID.ROWS - GRID.PLAYER_ROWS - 1;
+
+    if (this.poisonDive) {
+      head.r = Math.min(maxRow, head.r + 1);
+      if (head.r >= maxRow) { 
+        this.poisonDive = false; 
+      }
     } else {
       let nextC = head.c + head.dir;
-      const edge = nextC < 0 || nextC >= COLS;
+      const edge = nextC < 0 || nextC >= GRID.COLS;
       const mush = !edge ? grid.get(nextC, head.r) : null;
       const willHitPoison = !!mush?.poisoned;
 
-      if (willHitPoison){
-        // enter dive mode; move down one row this step
+      if (willHitPoison) {
+        // Enter dive mode; move down one row this step
         this.poisonDive = true;
-        head.r = Math.min(ROWS - PLAYER_ROWS - 1, head.r + 1);
-      } else if (edge || (!!mush)){
-        head.r = Math.min(ROWS - PLAYER_ROWS - 1, head.r + 1); head.dir = head.dir===1 ? -1 : 1;
+        head.r = Math.min(maxRow, head.r + 1);
+      } else if (edge || (!!mush)) {
+        head.r = Math.min(maxRow, head.r + 1);
+        head.dir = head.dir === 1 ? -1 : 1;
       } else {
         head.c = nextC;
       }
     }
 
-    for (let i=1;i<this.segments.length;i++){ this.segments[i].c = prev[i-1].c; this.segments[i].r = prev[i-1].r; }
-    if (head.r >= ROWS - PLAYER_ROWS - 1){ head.r = 0; }
+    // Update body segments to follow the leader
+    for (let i = 1; i < this.segments.length; i++) { 
+      this.segments[i].c = prev[i-1].c; 
+      this.segments[i].r = prev[i-1].r; 
+    }
+
+    // Wrap around to top when reaching bottom of play area
+    if (head.r >= maxRow) { 
+      head.r = 0; 
+    }
   }
 }

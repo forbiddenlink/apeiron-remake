@@ -1,4 +1,4 @@
-import { CELL, COLS, ROWS, PLAYER_ROWS, SPEED } from './Constants';
+import { GRID, ENEMIES } from './GameConfig';
 import type { Rect } from './Types';
 
 // Helper for sinusoidal movement
@@ -7,8 +7,13 @@ function sinMove(t: number, amplitude: number, frequency = 1): number {
 }
 
 export class Spider {
-  w = CELL*1.1; h = CELL*0.9; dead = false;
-  x: number; y: number; vx: number; vy: number;
+  w = GRID.CELL * 1.1;
+  h = GRID.CELL * 0.9;
+  dead = false;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
   private rand: () => number;
   private t = 0; // Time accumulator for movement patterns
   private pattern: 'zigzag' | 'chase' | 'ambush';
@@ -17,11 +22,11 @@ export class Spider {
 
   constructor(level: number, rand: () => number = Math.random) {
     this.rand = rand;
-    this.x = this.rand()<0.5 ? -this.w : COLS*CELL;
-  const minY = (ROWS-PLAYER_ROWS)*CELL;
-  const maxY = (ROWS-1)*CELL - this.h;
-    this.y = minY + this.rand()*(maxY - minY);
-    this.baseSpeed = SPEED.SPIDER_PX_PER_SEC_X + Math.min(120, level*12);
+    this.x = this.rand() < 0.5 ? -this.w : GRID.COLS * GRID.CELL;
+    const minY = (GRID.ROWS - GRID.PLAYER_ROWS) * GRID.CELL;
+    const maxY = (GRID.ROWS - 1) * GRID.CELL - this.h;
+    this.y = minY + this.rand() * (maxY - minY);
+    this.baseSpeed = ENEMIES.LARRY_THE_SCOBSTER.SPEED_PX_PER_SEC_X + Math.min(120, level * 12);
     this.vx = (this.x < 0 ? 1 : -1) * this.baseSpeed;
     this.vy = 0;
     
@@ -32,12 +37,13 @@ export class Spider {
 
   update(dt: number, playerY?: number) {
     this.t += dt;
-  const minY = (ROWS-PLAYER_ROWS)*CELL, maxY = (ROWS-1)*CELL - this.h;
+    const minY = (GRID.ROWS - GRID.PLAYER_ROWS) * GRID.CELL;
+    const maxY = (GRID.ROWS - 1) * GRID.CELL - this.h;
 
     switch(this.pattern) {
       case 'zigzag':
         // Complex zigzag pattern with varying amplitude
-        this.vy = sinMove(this.t, SPEED.SPIDER_PX_PER_SEC_Y, 2) * 
+        this.vy = sinMove(this.t, ENEMIES.LARRY_THE_SCOBSTER.SPEED_PX_PER_SEC_Y, 2) * 
                  (1 + 0.5 * Math.sin(this.t * 0.5));
         break;
       
@@ -47,7 +53,7 @@ export class Spider {
           const targetY = Math.max(minY, Math.min(maxY, playerY));
           this.vy = (targetY - this.y) * 3;
           // Add slight oscillation
-          this.vy += sinMove(this.t, SPEED.SPIDER_PX_PER_SEC_Y * 0.3);
+          this.vy += sinMove(this.t, ENEMIES.LARRY_THE_SCOBSTER.SPEED_PX_PER_SEC_Y * 0.3);
         }
         break;
       
@@ -73,23 +79,31 @@ export class Spider {
     this.y = Math.max(minY, Math.min(maxY, this.y + this.vy * dt));
     
     // Check for death condition
-    if (this.x < -this.w-10 || this.x > COLS*CELL+10) this.dead = true;
+    if (this.x < -this.w - 10 || this.x > GRID.COLS * GRID.CELL + 10) {
+      this.dead = true;
+    }
   }
 
-  rect(): Rect { return { x:this.x, y:this.y, w:this.w, h:this.h }; }
+  rect(): Rect { 
+    return { x: this.x, y: this.y, w: this.w, h: this.h }; 
+  }
 }
 
 export class Flea {
-  w = CELL; h = CELL; dead = false;
-  x: number; y: number; vy: number;
+  w = GRID.CELL;
+  h = GRID.CELL;
+  dead = false;
+  x: number;
+  y: number;
+  vy: number;
   private t = 0;
   private phase = 0;
   private dropMushrooms = false;
 
   constructor(rand: () => number = Math.random) {
-    this.x = Math.floor(rand()*COLS)*CELL;
-    this.y = -CELL;
-    this.vy = SPEED.FLEA_PX_PER_SEC_Y;
+    this.x = Math.floor(rand() * GRID.COLS) * GRID.CELL;
+    this.y = -GRID.CELL;
+    this.vy = ENEMIES.GROUCHO_THE_FLICK.SPEED_PX_PER_SEC_Y;
     this.dropMushrooms = rand() < 0.7; // 70% chance to drop mushrooms
     this.phase = rand() * Math.PI * 2; // Random starting phase
   }
@@ -99,10 +113,10 @@ export class Flea {
     
     // Sinusoidal horizontal movement while falling
     const oldX = this.x;
-    this.x = oldX + sinMove(this.t + this.phase, CELL * 0.5);
+    this.x = oldX + sinMove(this.t + this.phase, GRID.CELL * 0.5);
     
     // Ensure we stay within bounds
-    if (this.x < 0 || this.x > (COLS-1)*CELL) {
+    if (this.x < 0 || this.x > (GRID.COLS - 1) * GRID.CELL) {
       this.x = oldX;
     }
     
@@ -111,33 +125,44 @@ export class Flea {
     
     // Random speed changes
     if (Math.random() < 0.02) {
-      this.vy = SPEED.FLEA_PX_PER_SEC_Y * (1 + Math.random());
-      setTimeout(() => this.vy = SPEED.FLEA_PX_PER_SEC_Y, 300);
+      this.vy = ENEMIES.GROUCHO_THE_FLICK.SPEED_PX_PER_SEC_Y * (1 + Math.random());
+      setTimeout(() => this.vy = ENEMIES.GROUCHO_THE_FLICK.SPEED_PX_PER_SEC_Y, 300);
     }
     
-    if (this.y > ROWS*CELL) this.dead = true;
+    if (this.y > GRID.ROWS * GRID.CELL) {
+      this.dead = true;
+    }
   }
 
   shouldDropMushroom(): boolean {
-    return this.dropMushrooms && Math.random() < 0.08;
+    const playerRowMushrooms = 0; // TODO: Get actual count from grid
+    return this.dropMushrooms && 
+           playerRowMushrooms < ENEMIES.GROUCHO_THE_FLICK.PLAYER_ROWS_MIN_MUSHES &&
+           Math.random() < 0.08;
   }
 
-  rect(): Rect { return { x:this.x, y:this.y, w:this.w, h:this.h }; }
+  rect(): Rect { 
+    return { x: this.x, y: this.y, w: this.w, h: this.h }; 
+  }
 }
 
 export class Scorpion {
-  w = CELL; h = CELL; dead = false;
-  x: number; y: number; vx: number;
+  w = GRID.CELL;
+  h = GRID.CELL;
+  dead = false;
+  x: number;
+  y: number;
+  vx: number;
   private t = 0;
   private pattern: 'wave' | 'dash';
   private baseY: number;
   private baseSpeed: number;
 
   constructor(rand: () => number = Math.random) {
-    this.x = rand()<0.5 ? -CELL : COLS*CELL;
-    this.baseY = (5 + Math.floor(rand()*10))*CELL;
+    this.x = rand() < 0.5 ? -GRID.CELL : GRID.COLS * GRID.CELL;
+    this.baseY = (5 + Math.floor(rand() * 10)) * GRID.CELL;
     this.y = this.baseY;
-    this.baseSpeed = SPEED.SCORPION_PX_PER_SEC_X;
+    this.baseSpeed = ENEMIES.GORDON_THE_GECKO.SPEED_PX_PER_SEC_X;
     this.vx = (this.x < 0 ? 1 : -1) * this.baseSpeed;
     this.pattern = rand() < 0.6 ? 'wave' : 'dash';
   }
@@ -148,7 +173,7 @@ export class Scorpion {
     switch(this.pattern) {
       case 'wave':
         // Sinusoidal vertical movement
-        this.y = this.baseY + sinMove(this.t, CELL * 1.5);
+        this.y = this.baseY + sinMove(this.t, GRID.CELL * 1.5);
         break;
       
       case 'dash':
@@ -157,13 +182,17 @@ export class Scorpion {
           this.vx *= 2;
           setTimeout(() => this.vx = (this.vx > 0 ? 1 : -1) * this.baseSpeed, 400);
         }
-        this.y = this.baseY + sinMove(this.t, CELL * 0.5, 0.5);
+        this.y = this.baseY + sinMove(this.t, GRID.CELL * 0.5, 0.5);
         break;
     }
     
     this.x += this.vx * dt;
-    if (this.x < -CELL-4 || this.x > COLS*CELL+4) this.dead = true;
+    if (this.x < -GRID.CELL - 4 || this.x > GRID.COLS * GRID.CELL + 4) {
+      this.dead = true;
+    }
   }
 
-  rect(): Rect { return { x:this.x, y:this.y, w:this.w, h:this.h }; }
+  rect(): Rect { 
+    return { x: this.x, y: this.y, w: this.w, h: this.h }; 
+  }
 }
