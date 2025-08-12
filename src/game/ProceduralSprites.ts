@@ -437,6 +437,46 @@ export function drawFlea(g:CanvasRenderingContext2D, x:number, y:number, w:numbe
   g.restore();
 }
 
+export function drawUFO(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
+  // Save context state
+  g.save();
+  
+  // UFO body
+  g.fillStyle = COLORS.UFO;
+  g.beginPath();
+  g.ellipse(x + w/2, y + h * 0.6, w * 0.4, h * 0.25, 0, 0, Math.PI * 2);
+  g.fill();
+  
+  // UFO dome
+  g.fillStyle = COLORS.UFO_DOME;
+  g.beginPath();
+  g.ellipse(x + w/2, y + h * 0.4, w * 0.25, h * 0.3, 0, Math.PI, 0);
+  g.fill();
+  
+  // Energy field
+  g.globalCompositeOperation = 'lighter';
+  g.fillStyle = COLORS.UFO_GLOW;
+  g.beginPath();
+  g.ellipse(x + w/2, y + h/2, w * 0.45, h * 0.35, 0, 0, Math.PI * 2);
+  g.fill();
+  
+  // Beam effect
+  const beamGradient = g.createLinearGradient(x + w/2, y + h, x + w/2, y + h * 2);
+  beamGradient.addColorStop(0, 'rgba(100,255,255,0.3)');
+  beamGradient.addColorStop(1, 'rgba(100,255,255,0)');
+  g.fillStyle = beamGradient;
+  g.beginPath();
+  g.moveTo(x + w * 0.3, y + h);
+  g.lineTo(x + w * 0.7, y + h);
+  g.lineTo(x + w * 0.9, y + h * 2);
+  g.lineTo(x + w * 0.1, y + h * 2);
+  g.closePath();
+  g.fill();
+  
+  // Restore context state
+  g.restore();
+}
+
 export function drawScorpion(g:CanvasRenderingContext2D, x:number, y:number, w:number, h:number){
   const cx = x + w/2;
   const cy = y + h/2;

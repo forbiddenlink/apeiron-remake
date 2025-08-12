@@ -3,6 +3,7 @@ import { Grid, Mushroom } from './Grid';
 import { Player, PowerUpType } from './Player';
 import { Centipede } from './Centipede';
 import { Spider, Flea, Scorpion } from './Enemies';
+import { UFO } from './UFO';
 import { PowerUp } from './PowerUp';
 import { ParticleSystem } from './ParticleSystem';
 import { aabb } from './Types';
@@ -41,6 +42,7 @@ export class Engine{
   spiders: Spider[] = [];
   fleas: Flea[] = [];
   scorpions: Scorpion[] = [];
+  ufos: UFO[] = [];
   powerUps: PowerUp[] = [];
   coins: {x:number,y:number,w:number,h:number,active:boolean}[] = [];
   particles = new ParticleSystem();
@@ -284,13 +286,44 @@ export class Engine{
     this.ufoTimer -= dt;
     if (this.ufoTimer <= 0) {
       if (this.rand() < ENEMIES.UFO.SPAWN_CHANCE) {
-        // TODO: Add UFO spawn logic
+        this.ufos.push(new UFO(this.rand));
       }
       this.ufoTimer = randRange(
         ENEMIES.UFO.SPAWN_MIN_TIME,
         ENEMIES.UFO.SPAWN_MAX_TIME,
         this.rand
       );
+    }
+    
+    // Update UFOs and handle mushroom destruction
+    for (const ufo of this.ufos) {
+      const cellsToCheck = ufo.update(dt);
+      
+      // Handle mushroom destruction
+      if (cellsToCheck) {
+        for (const { c, r } of cellsToCheck) {
+          const mush = this.grid.get(c, r);
+          if (mush) {
+            // Remove mushroom
+            this.grid.set(c, r, null);
+            
+            // Add destruction effects
+            const x = c * GRID.CELL + GRID.CELL/2;
+            const y = r * GRID.CELL + GRID.CELL/2;
+            
+            // Explosion effect
+            this.particles.emitExplosion(x, y, mush.poisoned ? '#ff4fc8' : '#64b5f6');
+            
+            // Energy field effect
+            this.backgroundEffects.addEnergyField(x, y, 1.0);
+          }
+        }
+      }
+      
+      // Remove UFO if it's off screen
+      if (ufo.x < -ufo.w || ufo.x > GRID.COLS * GRID.CELL) {
+        ufo.dead = true;
+      }
     }
 
     // Groucho the Flick drops mushrooms as it falls
@@ -375,9 +408,10 @@ export class Engine{
     }
 
   // cleanup
-    this.spiders = this.spiders.filter(s=>!s.dead);
-    this.fleas = this.fleas.filter(s=>!s.dead);
-    this.scorpions = this.scorpions.filter(s=>!s.dead);
+    this.spiders = this.spiders.filter(s => !s.dead);
+    this.fleas = this.fleas.filter(s => !s.dead);
+    this.scorpions = this.scorpions.filter(s => !s.dead);
+    this.ufos = this.ufos.filter(u => !u.dead);
   this.coins = this.coins.filter(c=>c.active);
   // update popups and shake timer
   if (this.shakeT>0) this.shakeT -= dt;
@@ -971,7 +1005,7 @@ export class Engine{
     drawPlayer(g, p.x, p.y, p.w, p.h);
   if (p.flashT>0){ drawMuzzleFlash(g, p.x, p.y, p.w, Math.min(1, p.flashT/0.05)); }
     for (const b of p.bullets){ if(b.active) drawBullet(g, b.x, b.y); }
-    
+
     // Foreground particles (explosions, impacts, etc.)
     g.save();
     g.globalCompositeOperation = 'lighter';
@@ -1010,7 +1044,7 @@ export class Engine{
     g.fillText(hiText, this.width/2 - wHi/2, 15);
     
     // Lives
-    g.fillText('LIVES', 140, 15);
+  g.fillText('LIVES', 140, 15);
     const iconY = 6;
     let ix = 185;
     for (let i = 0; i < Math.max(0, this.lives); i++) {
@@ -1169,6 +1203,24 @@ export class Engine{
           if (sc.dead) continue;
           const r = sc.rect();
           g.strokeRect(r.x, r.y, r.w, r.h);
+        }
+        
+        for (const ufo of this.ufos) {
+          if (ufo.dead) continue;
+          const r = ufo.rect();
+          g.strokeRect(r.x, r.y, r.w, r.h);
+          
+          // Show destruction radius
+          g.strokeStyle = 'rgba(0, 255, 255, 0.2)';
+          g.beginPath();
+          g.arc(
+            r.x + r.w/2,
+            r.y + r.h/2,
+            ENEMIES.UFO.MUSHROOM_DESTROY_RADIUS,
+            0,
+            Math.PI * 2
+          );
+          g.stroke();
         }
         
         // Centipede segment hitboxes
