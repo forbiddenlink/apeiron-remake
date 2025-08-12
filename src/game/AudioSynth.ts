@@ -85,72 +85,146 @@ function crystalHit(baseFreq: number, volume = 0.22) {
 }
 
 // Voice synthesis approximation
-function voiceClip(type: 'scobster' | 'powerup' | 'bonus' | 'yeah') {
+function voiceClip(type: 'scobster' | 'powerup' | 'bonus' | 'yeah' | 'groucho' | 'gordon' | 'ufo' | 'yummy') {
   const a = ac(); if (!a) return;
   const t0 = a.currentTime;
   
   switch(type) {
     case 'scobster':
-      // "Scobsters!" approximation
+      // "Scobsters!" - Larry's signature call
       fmOsc(400, 50, 30, 0.2, 'sawtooth', 0.3);
       setTimeout(() => fmOsc(300, 40, 20, 0.15, 'sawtooth', 0.25), 200);
+      setTimeout(() => fmOsc(350, 45, 25, 0.1, 'sawtooth', 0.2), 350);
       break;
+      
+    case 'groucho':
+      // "Heh heh heh!" - Groucho's laugh
+      fmOsc(250, 30, 20, 0.15, 'square', 0.25);
+      setTimeout(() => fmOsc(230, 28, 18, 0.15, 'square', 0.23), 160);
+      setTimeout(() => fmOsc(210, 26, 16, 0.15, 'square', 0.21), 320);
+      break;
+      
+    case 'gordon':
+      // "Ssssss!" - Gordon's hiss
+      noise(0.3, 0.15, 'pink');
+      fmOsc(800, 100, 60, 0.3, 'sawtooth', 0.2);
+      break;
+      
+    case 'ufo':
+      // "Vwoooosh!" - UFO's energy beam
+      fmOsc(600, 150, 100, 0.4, 'sine', 0.25);
+      setTimeout(() => noise(0.3, 0.1, 'pink'), 100);
+      break;
+      
     case 'powerup':
-      // "Power up!" approximation
+      // "Power up!" - More energetic
       fmOsc(500, 60, 40, 0.15, 'square', 0.3);
       setTimeout(() => fmOsc(600, 70, 50, 0.2, 'square', 0.3), 150);
+      setTimeout(() => fmOsc(700, 80, 60, 0.1, 'square', 0.25), 350);
       break;
+      
+    case 'yummy':
+      // "Yummy!" - Cheerful collection sound
+      fmOsc(600, 75, 45, 0.15, 'sine', 0.3);
+      setTimeout(() => fmOsc(450, 55, 35, 0.2, 'sine', 0.25), 150);
+      break;
+      
     case 'bonus':
-      // "Bonus!" approximation
+      // "Bonus!" - More impactful
       fmOsc(450, 55, 35, 0.2, 'sawtooth', 0.3);
       setTimeout(() => fmOsc(350, 45, 25, 0.15, 'sawtooth', 0.25), 200);
+      setTimeout(() => fmOsc(550, 65, 45, 0.1, 'sawtooth', 0.2), 350);
       break;
+      
     case 'yeah':
-      // "Yeah!" approximation
+      // "Yeah!" - More enthusiastic
       fmOsc(350, 45, 25, 0.2, 'sawtooth', 0.3);
+      setTimeout(() => fmOsc(450, 55, 35, 0.15, 'sawtooth', 0.25), 200);
       break;
   }
 }
 
 export const sfx = {
+  // XQJ-37 plasma blaster sounds
   shoot() { 
     energyBeam(1250, 0.15);
     noise(0.1, 0.05, 'pink');
   },
+  
+  // Crystal impact sounds
   hit() { 
     crystalHit(250);
     noise(0.05, 0.1, 'white');
   },
+  
+  // Larry the Scobster (Spider)
   spider() {
+    voiceClip('scobster');
     fmOsc(520, 130, 60, 0.2, 'triangle', 0.2);
-    setTimeout(() => voiceClip('scobster'), 100);
+    setTimeout(() => noise(0.15, 0.1, 'pink'), 100);
   },
+  
+  // Groucho the Flick (Flea)
   flea() {
+    voiceClip('groucho');
     fmOsc(430, 215, 40, 0.15, 'triangle', 0.18);
-    noise(0.1, 0.08, 'pink');
+    setTimeout(() => noise(0.1, 0.08, 'pink'), 150);
   },
+  
+  // Gordon the Gecko (Scorpion)
   scorpion() {
+    voiceClip('gordon');
     fmOsc(860, 215, 80, 0.2, 'sawtooth', 0.2);
-    noise(0.15, 0.1, 'brown');
+    setTimeout(() => noise(0.15, 0.1, 'brown'), 100);
   },
+  
+  // UFO sounds
+  ufo() {
+    voiceClip('ufo');
+    fmOsc(600, 150, 100, 0.4, 'sine', 0.2);
+    setTimeout(() => noise(0.3, 0.1, 'pink'), 200);
+  },
+  
+  // Power-up (Yummy) collection
+  powerup() {
+    voiceClip('yummy');
+    fmOsc(600, 150, 60, 0.2, 'sine', 0.2);
+    setTimeout(() => fmOsc(800, 200, 80, 0.15, 'sine', 0.18), 150);
+  },
+  
+  // Extra life and bonuses
   extra() {
     voiceClip('bonus');
     fmOsc(900, 225, 90, 0.15, 'square', 0.22);
     setTimeout(() => fmOsc(1400, 350, 140, 0.2, 'square', 0.22), 40);
   },
+  
+  // Level completion
   level() {
     voiceClip('yeah');
     fmOsc(980, 245, 98, 0.25, 'square', 0.2);
+    setTimeout(() => fmOsc(1200, 300, 120, 0.2, 'square', 0.18), 250);
   },
+  
+  // Game start
   start() {
     voiceClip('powerup');
     fmOsc(600, 150, 60, 0.2, 'square', 0.2);
     setTimeout(() => fmOsc(900, 225, 90, 0.2, 'square', 0.2), 60);
     setTimeout(() => fmOsc(1200, 300, 120, 0.2, 'square', 0.2), 120);
   },
+  
+  // Game over
   gameover() {
     fmOsc(800, 200, 80, 0.3, 'triangle', 0.2);
     setTimeout(() => fmOsc(420, 105, 42, 0.4, 'sawtooth', 0.22), 90);
-    noise(0.5, 0.15, 'brown');
+    setTimeout(() => noise(0.5, 0.15, 'brown'), 180);
+  },
+  
+  // Volume control
+  setVolume(volume: number) {
+    // Volume is 0-100, convert to 0-1
+    const v = Math.max(0, Math.min(1, volume / 100));
+    // TODO: Implement per-sound volume control
   }
 };
