@@ -218,34 +218,79 @@ export class Engine{
   // coins fall slowly (for readability) if any
   for (const coin of this.coins){ if (!coin.active) continue; coin.y += 30*dt; if (coin.y>this.height) coin.active=false; }
 
-    // spawn logic
-    this.spiderTimer -= dt; if (this.spiderTimer<=0){ this.spiders.push(new Spider(this.level, this.rand)); this.spiderTimer = randRange(TIMERS.SPAWN_SPIDER_MIN,TIMERS.SPAWN_SPIDER_MAX, this.rand); }
-    this.fleaCd -= dt; if (this.fleaCd<=0){
-      const playerRowStart = ROWS-PLAYER_ROWS;
-      const mushes = this.grid.countInRows(playerRowStart, ROWS-1);
-      if (mushes < DENSITY.PLAYER_ROWS_MIN_MUSHES) this.fleas.push(new Flea(this.rand));
-      this.fleaCd = TIMERS.SPAWN_FLEA_COOLDOWN;
+    // Enemy spawn logic
+    
+    // Larry the Scobster (Spider)
+    this.spiderTimer -= dt;
+    if (this.spiderTimer <= 0) {
+      this.spiders.push(new Spider(this.level, this.rand));
+      this.spiderTimer = randRange(
+        ENEMIES.LARRY_THE_SCOBSTER.SPAWN_MIN_TIME,
+        ENEMIES.LARRY_THE_SCOBSTER.SPAWN_MAX_TIME,
+        this.rand
+      );
     }
-    this.scorpionTimer -= dt; if (this.scorpionTimer<=0){ this.scorpions.push(new Scorpion(this.rand)); this.scorpionTimer = randRange(TIMERS.SPAWN_SCORPION_MIN,TIMERS.SPAWN_SCORPION_MAX, this.rand); }
-    // coin spawn
-    this.coinTimer -= dt; if (this.coinTimer<=0){
-      // drop a coin near top area
-      const x = Math.floor(this.rand()*COLS)*CELL + CELL/2 - 6;
-      const y = 2;
-      this.coins.push({x, y, w:12, h:12, active:true});
-      this.coinTimer = randRange(TIMERS.COIN_SPAWN_MIN,TIMERS.COIN_SPAWN_MAX, this.rand);
+    
+    // Groucho the Flick (Flea)
+    this.fleaCd -= dt;
+    if (this.fleaCd <= 0) {
+      const playerRowStart = GRID.ROWS - GRID.PLAYER_ROWS;
+      const mushes = this.grid.countInRows(playerRowStart, GRID.ROWS - 1);
+      if (mushes < ENEMIES.GROUCHO_THE_FLICK.PLAYER_ROWS_MIN_MUSHES) {
+        this.fleas.push(new Flea(this.rand));
+      }
+      this.fleaCd = ENEMIES.GROUCHO_THE_FLICK.SPAWN_COOLDOWN;
+    }
+    
+    // Gordon the Gecko (Scorpion)
+    this.scorpionTimer -= dt;
+    if (this.scorpionTimer <= 0) {
+      this.scorpions.push(new Scorpion(this.rand));
+      this.scorpionTimer = randRange(
+        ENEMIES.GORDON_THE_GECKO.SPAWN_MIN_TIME,
+        ENEMIES.GORDON_THE_GECKO.SPAWN_MAX_TIME,
+        this.rand
+      );
+    }
+    
+    // UFO
+    this.ufoTimer -= dt;
+    if (this.ufoTimer <= 0) {
+      if (this.rand() < ENEMIES.UFO.SPAWN_CHANCE) {
+        // TODO: Add UFO spawn logic
+      }
+      this.ufoTimer = randRange(
+        ENEMIES.UFO.SPAWN_MIN_TIME,
+        ENEMIES.UFO.SPAWN_MAX_TIME,
+        this.rand
+      );
     }
 
-    // flea plants mushrooms as it falls (random chance every cell)
-    for (const f of this.fleas){
-      const c = Math.floor(f.x / CELL); const r = Math.floor(f.y / CELL);
-      if (inBounds(c,r) && this.rand()<0.08 && !this.grid.get(c,r) && r < ROWS-PLAYER_ROWS){ this.grid.set(c,r,new Mushroom(c,r)); }
+    // Groucho the Flick drops mushrooms as it falls
+    for (const f of this.fleas) {
+      const c = Math.floor(f.x / GRID.CELL);
+      const r = Math.floor(f.y / GRID.CELL);
+      if (inBounds(c, r) && 
+          this.rand() < ENEMIES.GROUCHO_THE_FLICK.MUSHROOM_DROP_CHANCE && 
+          !this.grid.get(c, r) && 
+          r < GRID.ROWS - GRID.PLAYER_ROWS) {
+        this.grid.set(c, r, new Mushroom(c, r));
+      }
     }
 
-    // scorpion poisons mushrooms it touches
-    for (const sc of this.scorpions){
-      const c = Math.floor(sc.x / CELL); const r = Math.floor(sc.y / CELL);
-      const m = this.grid.get(c,r); if (m) m.poisoned = true;
+    // Gordon the Gecko poisons mushrooms it touches
+    for (const sc of this.scorpions) {
+      const c = Math.floor(sc.x / GRID.CELL);
+      const r = Math.floor(sc.y / GRID.CELL);
+      const m = this.grid.get(c, r);
+      if (m) {
+        m.poisoned = true;
+        // Add poison effect particles
+        this.particles.emitPoison(
+          c * GRID.CELL + GRID.CELL/2,
+          r * GRID.CELL + GRID.CELL/2
+        );
+      }
     }
 
     // bullets collisions
@@ -255,17 +300,51 @@ export class Engine{
   const pr = this.player.rect();
   for (const coin of this.coins){ if (!coin.active) continue; if (aabb(pr, coin)){ coin.active=false; this.player.autofireTime = POWERUPS.AUTOFIRE_DURATION; sfx.extra(); } }
 
-    // player collisions (segments, spider, flea, scorpion)
-    if (this.player.alive){
+    // Player collisions with enemies
+    if (this.player.alive) {
       const pr = this.player.rect();
-      // segments
-      for (const cent of this.centipedes){ for (const s of cent.segments){ if (aabb(pr, {x:s.c*CELL+2,y:s.r*CELL+2,w:CELL-4,h:CELL-4})) { this.loseLife(); return; } } }
-      // spider
-      for (const sp of this.spiders){ if (!sp.dead && aabb(pr, sp.rect())) { this.loseLife(); return; } }
-      // flea
-      for (const f of this.fleas){ if (!f.dead && aabb(pr, f.rect())) { this.loseLife(); return; } }
-      // scorpion
-      for (const sc of this.scorpions){ if (!sc.dead && aabb(pr, sc.rect())) { this.loseLife(); return; } }
+      
+      // Pentipede segments
+      for (const cent of this.centipedes) {
+        for (const s of cent.segments) {
+          if (aabb(pr, {
+            x: s.c * GRID.CELL + 2,
+            y: s.r * GRID.CELL + 2,
+            w: GRID.CELL - 4,
+            h: GRID.CELL - 4
+          })) {
+            this.loseLife();
+            return;
+          }
+        }
+      }
+      
+      // Larry the Scobster (Spider)
+      for (const sp of this.spiders) {
+        if (!sp.dead && aabb(pr, sp.rect())) {
+          this.loseLife();
+          return;
+        }
+      }
+      
+      // Groucho the Flick (Flea)
+      for (const f of this.fleas) {
+        if (!f.dead && aabb(pr, f.rect())) {
+          this.loseLife();
+          return;
+        }
+      }
+      
+      // Gordon the Gecko (Scorpion)
+      for (const sc of this.scorpions) {
+        if (!sc.dead && aabb(pr, sc.rect())) {
+          this.loseLife();
+          return;
+        }
+      }
+      
+      // UFO
+      // TODO: Add UFO collision handling
     }
 
   // cleanup
@@ -516,12 +595,13 @@ export class Engine{
     return false;
   }
 
-  private spiderScore(sp:Spider){
-    // proximity tiers by distance to player
-    const py = this.player.y; const dy = Math.abs(sp.y - py);
-    if (dy < CELL*2) return SCORE.SPIDER_NEAR;
-    if (dy < CELL*4) return SCORE.SPIDER_MED;
-    return SCORE.SPIDER_FAR;
+  private spiderScore(sp: Spider) {
+    // Proximity tiers by distance to player
+    const py = this.player.y;
+    const dy = Math.abs(sp.y - py);
+    if (dy < GRID.CELL * 2) return ENEMIES.LARRY_THE_SCOBSTER.SCORE_NEAR;
+    if (dy < GRID.CELL * 4) return ENEMIES.LARRY_THE_SCOBSTER.SCORE_MED;
+    return ENEMIES.LARRY_THE_SCOBSTER.SCORE_FAR;
   }
 
   private loseLife(){
