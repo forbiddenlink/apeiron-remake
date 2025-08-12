@@ -1,4 +1,4 @@
-import { CELL, COLS, ROWS, PLAYER_ROWS, TIMERS, SCORE, DENSITY, EXTRA_LIFE_STEP, VISUAL, POWERUPS, POWERUP_COLORS } from './Constants';
+import { GRID, SCORE, SCORING, EXTRA_LIFE_STEP, VISUAL, YUMMIES, XQJ37_BLASTER, ENEMIES, DEBUG } from './GameConfig';
 import { Grid, Mushroom } from './Grid';
 import { Player, PowerUpType } from './Player';
 import { Centipede } from './Centipede';
@@ -22,16 +22,20 @@ export class Engine{
     sfxVolume: 80,
     particleDensity: 'medium' as const,
     screenShake: true,
-    showHitboxes: false,
-    showFPS: false
+    showHitboxes: DEBUG.SHOW_HITBOXES,
+    showFPS: DEBUG.SHOW_FPS
   };
   private levelClearT = 0; // seconds remaining for level-clear flash/freeze
   private popups: {x:number,y:number,text:string,t:number}[] = [];
   private shakeT = 0; // seconds
   private tGlobal = 0; // accumulative time for deterministic shake phase
 
-  score=0; highScore=0; lives=3; level=1; nextExtraLife=EXTRA_LIFE_STEP;
-  grid = new Grid(COLS, ROWS);
+  score = 0;
+  highScore = 0;
+  lives = 3;
+  level = 1;
+  nextExtraLife = EXTRA_LIFE_STEP;
+  grid = new Grid(GRID.COLS, GRID.ROWS);
   player = new Player();
   centipedes: Centipede[] = [];
   spiders: Spider[] = [];
@@ -51,10 +55,22 @@ export class Engine{
   private mushroomsLost = 0;
   private hitsTaken = 0;
 
-  private spiderTimer=randRange(TIMERS.SPAWN_SPIDER_MIN,TIMERS.SPAWN_SPIDER_MAX, this.rand);
-  private fleaCd=TIMERS.SPAWN_FLEA_COOLDOWN;
-  private scorpionTimer=randRange(TIMERS.SPAWN_SCORPION_MIN,TIMERS.SPAWN_SCORPION_MAX, this.rand);
-  private coinTimer=randRange(TIMERS.COIN_SPAWN_MIN,TIMERS.COIN_SPAWN_MAX, this.rand);
+  private spiderTimer = randRange(
+    ENEMIES.LARRY_THE_SCOBSTER.SPAWN_MIN_TIME,
+    ENEMIES.LARRY_THE_SCOBSTER.SPAWN_MAX_TIME,
+    this.rand
+  );
+  private fleaCd = ENEMIES.GROUCHO_THE_FLICK.SPAWN_COOLDOWN;
+  private scorpionTimer = randRange(
+    ENEMIES.GORDON_THE_GECKO.SPAWN_MIN_TIME,
+    ENEMIES.GORDON_THE_GECKO.SPAWN_MAX_TIME,
+    this.rand
+  );
+  private ufoTimer = randRange(
+    ENEMIES.UFO.SPAWN_MIN_TIME,
+    ENEMIES.UFO.SPAWN_MAX_TIME,
+    this.rand
+  );
 
   constructor(private canvas:HTMLCanvasElement, private width:number, private height:number){
     const c = canvas.getContext('2d'); if (!c) throw new Error('No 2D context'); this.ctx = c;
@@ -64,20 +80,20 @@ export class Engine{
     this.bindInput();
   }
 
-  // Fill the grid with mushrooms at the given density, avoiding the player zone (bottom PLAYER_ROWS rows)
+  // Fill the grid with mushrooms at the given density, avoiding the player zone
   private seedMushrooms(density: number) {
     // Clear all mushrooms first
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
+    for (let r = 0; r < GRID.ROWS; r++) {
+      for (let c = 0; c < GRID.COLS; c++) {
         this.grid.set(c, r, null);
       }
     }
     // Place mushrooms randomly, skipping player zone
-    const total = Math.floor(COLS * (ROWS - PLAYER_ROWS) * density);
+    const total = Math.floor(GRID.COLS * (GRID.ROWS - GRID.PLAYER_ROWS) * density);
     let placed = 0;
     while (placed < total) {
-      const c = Math.floor(this.rand() * COLS);
-      const r = Math.floor(this.rand() * (ROWS - PLAYER_ROWS));
+      const c = Math.floor(this.rand() * GRID.COLS);
+      const r = Math.floor(this.rand() * (GRID.ROWS - GRID.PLAYER_ROWS));
       if (!this.grid.get(c, r)) {
         this.grid.set(c, r, new Mushroom(c, r));
         placed++;
@@ -88,12 +104,24 @@ export class Engine{
   start(){ this.running = true; this.last = performance.now(); this.loop(this.last); }
   destroy(){ this.running=false; cancelAnimationFrame(this.raf); this.unbindInput(); }
 
-  private loop(now:number){
+  private loop(now: number) {
     if (!this.running) return;
-    const dt = (now - this.last) / 1000; this.last = now; this.acc += dt;
-  while (this.acc >= TIMERS.FIXED_DT){ if (this.mode==='playing') this.tick(TIMERS.FIXED_DT); this.acc -= TIMERS.FIXED_DT; }
+    
+    const dt = (now - this.last) / 1000;
+    this.last = now;
+    this.acc += dt;
+    
+    // Fixed timestep (60Hz)
+    const FIXED_DT = 1/60;
+    while (this.acc >= FIXED_DT) {
+      if (this.mode === 'playing') {
+        this.tick(FIXED_DT);
+      }
+      this.acc -= FIXED_DT;
+    }
+    
     this.draw();
-    this.raf = requestAnimationFrame(t=>this.loop(t));
+    this.raf = requestAnimationFrame(t => this.loop(t));
   }
 
   private tick(dt:number){
