@@ -887,7 +887,7 @@ export class Engine{
 
   private backgroundEffects = new BackgroundEffects(this.ctx, this.width, this.height);
 
-  private draw(){
+  private draw() {
     const g = this.ctx;
     g.imageSmoothingEnabled = false;
     
@@ -899,15 +899,31 @@ export class Engine{
     let sx = 0, sy = 0;
     if (this.shakeT > 0 && this.settings.screenShake) {
       const m = 3 * (this.shakeT/0.35);
-      sx = Math.sin(this.tGlobal*80) * m;
-      sy = Math.cos(this.tGlobal*60) * m;
+      sx = Math.sin(this.tGlobal * 80) * m;
+      sy = Math.cos(this.tGlobal * 60) * m;
     }
     g.save();
     g.translate(sx, sy);
-    // bezel/frame
-    if ((VISUAL as any)?.FRAME){
-      g.strokeStyle = '#333'; g.lineWidth = 4; g.strokeRect(2,2,this.width-4,this.height-4);
-      g.strokeStyle = '#111'; g.lineWidth = 2; g.strokeRect(6,6,this.width-12,this.height-12);
+    
+    // Draw bezel/frame
+    if (VISUAL.FRAME) {
+      // Outer frame
+      g.strokeStyle = '#333';
+      g.lineWidth = 4;
+      g.strokeRect(2, 2, this.width - 4, this.height - 4);
+      
+      // Inner frame
+      g.strokeStyle = '#111';
+      g.lineWidth = 2;
+      g.strokeRect(6, 6, this.width - 12, this.height - 12);
+      
+      // Frame glow
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      g.strokeStyle = 'rgba(100,100,255,0.1)';
+      g.lineWidth = 8;
+      g.strokeRect(4, 4, this.width - 8, this.height - 8);
+      g.restore();
     }
 
     // Background particles (energy trails, etc.)
@@ -962,104 +978,215 @@ export class Engine{
     this.particles.draw(g);
     g.restore();
 
-  // optional scanlines
-    if ((VISUAL as any)?.SCANLINES){
+    // Draw scanlines
+    if (VISUAL.SCANLINES) {
+      g.save();
+      g.globalCompositeOperation = 'multiply';
       g.fillStyle = 'rgba(0,0,0,0.07)';
-      for (let y=0;y<this.height;y+=2){ g.fillRect(0,y,this.width,1); }
+      for (let y = 0; y < this.height; y += 2) {
+        g.fillRect(0, y, this.width, 1);
+      }
+      g.restore();
     }
 
-  // HUD bar
-  g.fillStyle = 'rgba(0,0,0,0.85)'; g.fillRect(0,0,this.width,22);
-  g.fillStyle = '#ffffff'; g.strokeStyle='#000'; g.font = '12px ui-monospace, Menlo, monospace';
-  g.fillText('SCORE '+this.score.toString().padStart(6,'0'), 8, 15);
-  // HI at center
-  const hiText = 'HI '+this.highScore.toString().padStart(6,'0');
-  const wHi = g.measureText(hiText).width; g.fillText(hiText, this.width/2 - wHi/2, 15);
-  g.fillText('LIVES', 140, 15);
-    // draw life icons
-  const iconY = 6; let ix = 185;
-    for (let i=0;i<Math.max(0,this.lives);i++){
-      g.fillStyle = '#5be3ff'; g.fillRect(ix, iconY+6, 10, 6);
-      g.fillStyle = '#b8f4ff'; g.fillRect(ix+4, iconY, 2, 6);
+    // Draw HUD bar
+    g.fillStyle = 'rgba(0,0,0,0.85)';
+    g.fillRect(0, 0, this.width, 22);
+    
+    g.fillStyle = '#ffffff';
+    g.strokeStyle = '#000';
+    g.font = '12px ui-monospace, Menlo, monospace';
+    
+    // Score
+    g.fillText(
+      'SCORE ' + this.score.toString().padStart(6, '0'),
+      8,
+      15
+    );
+    
+    // High score
+    const hiText = 'HI ' + this.highScore.toString().padStart(6, '0');
+    const wHi = g.measureText(hiText).width;
+    g.fillText(hiText, this.width/2 - wHi/2, 15);
+    
+    // Lives
+    g.fillText('LIVES', 140, 15);
+    const iconY = 6;
+    let ix = 185;
+    for (let i = 0; i < Math.max(0, this.lives); i++) {
+      // Crystal shooter icon
+      g.fillStyle = '#5be3ff';
+      g.fillRect(ix, iconY + 6, 10, 6);
+      g.fillStyle = '#b8f4ff';
+      g.fillRect(ix + 4, iconY, 2, 6);
+      
+      // Icon glow
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      g.fillStyle = 'rgba(91,227,255,0.3)';
+      g.fillRect(ix - 2, iconY + 4, 14, 10);
+      g.restore();
+      
       ix += 16;
     }
-  g.fillText('LEVEL '+this.level, 260, 15);
-  // coin indicator
-  g.fillText('COIN', 360, 15);
-  if (this.player.autofireTime>0){ g.fillStyle='#ffd54a'; g.fillRect(400, 7, 40*(this.player.autofireTime/POWERUPS.AUTOFIRE_DURATION), 8); }
+    
+    // Level
+    g.fillText('LEVEL ' + this.level, 260, 15);
+    
+    // Yummy indicator
+    if (this.player.autofireTime > 0) {
+      const progress = this.player.autofireTime / YUMMIES.DURATIONS.MACHINE_GUN;
+      
+      // Background bar
+      g.fillStyle = 'rgba(255,213,74,0.3)';
+      g.fillRect(400, 7, 40, 8);
+      
+      // Progress bar
+      g.fillStyle = '#ffd54a';
+      g.fillRect(400, 7, 40 * progress, 8);
+      
+      // Glow effect
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      g.fillStyle = 'rgba(255,213,74,0.2)';
+      g.fillRect(398, 5, 44 * progress, 12);
+      g.restore();
+    }
 
-    // player zone line (hidden by default via VISUAL flag)
-    if ((VISUAL as any)?.PLAYER_ZONE_LINE){
-      g.strokeStyle = '#222'; g.lineWidth = 1;
-      const yLine = (ROWS-PLAYER_ROWS)*CELL + 0.5;
-      g.beginPath(); g.moveTo(0, yLine); g.lineTo(this.width, yLine); g.stroke();
+    // Player zone line
+    if (VISUAL.PLAYER_ZONE_LINE) {
+      const yLine = (GRID.ROWS - GRID.PLAYER_ROWS) * GRID.CELL + 0.5;
+      
+      // Base line
+      g.strokeStyle = '#222';
+      g.lineWidth = 1;
+      g.beginPath();
+      g.moveTo(0, yLine);
+      g.lineTo(this.width, yLine);
+      g.stroke();
+      
+      // Glow effect
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      g.strokeStyle = 'rgba(100,100,255,0.1)';
+      g.lineWidth = 3;
+      g.beginPath();
+      g.moveTo(0, yLine);
+      g.lineTo(this.width, yLine);
+      g.stroke();
+      g.restore();
     }
-    // floating score popups
-    if (this.popups.length){
-      g.font = '12px ui-monospace, Menlo, monospace'; g.textAlign='center';
-      for (const p of this.popups){
-        const a = Math.max(0, Math.min(1, p.t/0.7));
-        g.fillStyle = `rgba(255,255,255,${a})`; g.strokeStyle = `rgba(0,0,0,${a})`;
-        g.lineWidth = 2; g.strokeText(p.text, p.x, p.y); g.fillText(p.text, p.x, p.y);
-      }
-      g.textAlign='start';
-    }
-    // overlays
-    // level clear flash overlay (white fade)
-    if (this.levelClearT>0){
-      const a = Math.min(0.9, Math.max(0, this.levelClearT / 0.6));
-      g.fillStyle = `rgba(255,255,255,${a})`; g.fillRect(0,0,this.width,this.height);
-    }
-    // Draw FPS counter if enabled
-    if (this.settings.showFPS) {
-      const fps = Math.round(1000 / (performance.now() - this.last));
-      g.fillStyle = '#fff';
+    // Floating score popups
+    if (this.popups.length) {
       g.font = '12px ui-monospace, Menlo, monospace';
-      g.fillText(`FPS: ${fps}`, this.width - 60, 15);
+      g.textAlign = 'center';
+      
+      for (const p of this.popups) {
+        const a = Math.max(0, Math.min(1, p.t/0.7));
+        
+        // Glow effect
+        g.save();
+        g.globalCompositeOperation = 'lighter';
+        g.fillStyle = `rgba(255,255,255,${a * 0.3})`;
+        g.fillText(p.text, p.x, p.y);
+        g.fillText(p.text, p.x, p.y);
+        g.restore();
+        
+        // Main text
+        g.fillStyle = `rgba(255,255,255,${a})`;
+        g.strokeStyle = `rgba(0,0,0,${a})`;
+        g.lineWidth = 2;
+        g.strokeText(p.text, p.x, p.y);
+        g.fillText(p.text, p.x, p.y);
+      }
+      
+      g.textAlign = 'start';
     }
     
-    // Draw hitboxes if enabled
-    if (this.settings.showHitboxes) {
-      g.strokeStyle = 'rgba(255, 0, 0, 0.5)';
-      g.lineWidth = 1;
+    // Level clear flash overlay
+    if (this.levelClearT > 0) {
+      const a = Math.min(0.9, Math.max(0, this.levelClearT / 0.6));
       
-      // Player hitbox
-      const pr = this.player.rect();
-      g.strokeRect(pr.x, pr.y, pr.w, pr.h);
+      // White flash
+      g.fillStyle = `rgba(255,255,255,${a})`;
+      g.fillRect(0, 0, this.width, this.height);
       
-      // Bullet hitboxes
-      for (const b of this.player.bullets) {
-        if (!b.active) continue;
-        const br = b.rect();
-        g.strokeRect(br.x, br.y, br.w, br.h);
+      // Energy ripple effect
+      const rippleRadius = (1 - this.levelClearT/0.6) * Math.max(this.width, this.height);
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      g.strokeStyle = `rgba(255,255,255,${a * 0.5})`;
+      g.lineWidth = 2;
+      g.beginPath();
+      g.arc(this.width/2, this.height/2, rippleRadius, 0, Math.PI * 2);
+      g.stroke();
+      g.restore();
+    }
+    
+    // Debug overlays
+    if (this.settings.showFPS || this.settings.showHitboxes) {
+      g.save();
+      g.globalAlpha = 0.8;
+      
+      // FPS counter
+      if (this.settings.showFPS) {
+        const fps = Math.round(1000 / (performance.now() - this.last));
+        g.fillStyle = '#fff';
+        g.font = '12px ui-monospace, Menlo, monospace';
+        g.fillText(`FPS: ${fps}`, this.width - 60, 15);
       }
       
-      // Enemy hitboxes
-      for (const sp of this.spiders) {
-        if (sp.dead) continue;
-        const r = sp.rect();
-        g.strokeRect(r.x, r.y, r.w, r.h);
-      }
-      
-      for (const f of this.fleas) {
-        if (f.dead) continue;
-        const r = f.rect();
-        g.strokeRect(r.x, r.y, r.w, r.h);
-      }
-      
-      for (const sc of this.scorpions) {
-        if (sc.dead) continue;
-        const r = sc.rect();
-        g.strokeRect(r.x, r.y, r.w, r.h);
-      }
-      
-      // Centipede segment hitboxes
-      for (const cent of this.centipedes) {
-        for (const s of cent.segments) {
-          g.strokeRect(s.c*CELL+2, s.r*CELL+2, CELL-4, CELL-4);
+      // Hitboxes
+      if (this.settings.showHitboxes) {
+        g.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+        g.lineWidth = 1;
+        
+        // Player hitbox
+        const pr = this.player.rect();
+        g.strokeRect(pr.x, pr.y, pr.w, pr.h);
+        
+        // Bullet hitboxes
+        for (const b of this.player.bullets) {
+          if (!b.active) continue;
+          const br = b.rect();
+          g.strokeRect(br.x, br.y, br.w, br.h);
+        }
+        
+        // Enemy hitboxes
+        for (const sp of this.spiders) {
+          if (sp.dead) continue;
+          const r = sp.rect();
+          g.strokeRect(r.x, r.y, r.w, r.h);
+        }
+        
+        for (const f of this.fleas) {
+          if (f.dead) continue;
+          const r = f.rect();
+          g.strokeRect(r.x, r.y, r.w, r.h);
+        }
+        
+        for (const sc of this.scorpions) {
+          if (sc.dead) continue;
+          const r = sc.rect();
+          g.strokeRect(r.x, r.y, r.w, r.h);
+        }
+        
+        // Centipede segment hitboxes
+        for (const cent of this.centipedes) {
+          for (const s of cent.segments) {
+            g.strokeRect(
+              s.c * GRID.CELL + 2,
+              s.r * GRID.CELL + 2,
+              GRID.CELL - 4,
+              GRID.CELL - 4
+            );
+          }
         }
       }
+      
+      g.restore();
     }
+    
     g.restore();
   }
 
