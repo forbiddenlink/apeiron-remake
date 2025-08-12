@@ -215,8 +215,8 @@ export class Engine{
       }
     }
     
-    // coins fall slowly (for readability) if any
-    for (const coin of this.coins){ if (!coin.active) continue; coin.y += 30*dt; if (coin.y>this.height) coin.active=false; }
+  // coins fall slowly (for readability) if any
+  for (const coin of this.coins){ if (!coin.active) continue; coin.y += 30*dt; if (coin.y>this.height) coin.active=false; }
 
     // spawn logic
     this.spiderTimer -= dt; if (this.spiderTimer<=0){ this.spiders.push(new Spider(this.level, this.rand)); this.spiderTimer = randRange(TIMERS.SPAWN_SPIDER_MIN,TIMERS.SPAWN_SPIDER_MAX, this.rand); }
@@ -413,12 +413,12 @@ export class Engine{
     // Add small energy field effect for bullet impact
     this.backgroundEffects.addEnergyField(b.x, b.y, 0.5);
     
-    // mushrooms
-    const mc = Math.floor(b.x / CELL), mr = Math.floor(b.y / CELL);
-    const mush = this.grid.get(mc, mr);
-    if (mush){
-      const rect = { x:mush.x+2, y:mush.y+2, w:CELL-4, h:CELL-4 };
-      if (aabb(b.rect(), rect)){
+      // mushrooms
+      const mc = Math.floor(b.x / CELL), mr = Math.floor(b.y / CELL);
+      const mush = this.grid.get(mc, mr);
+      if (mush){
+        const rect = { x:mush.x+2, y:mush.y+2, w:CELL-4, h:CELL-4 };
+        if (aabb(b.rect(), rect)){
         b.active = false;
         mush.hp -= b.damage;
         this.addScore(SCORE.MUSHROOM_HIT);
@@ -441,15 +441,15 @@ export class Engine{
       }
     }
     
-    // centipede segments
-    hitLoop: for (let ci=0; ci<this.centipedes.length; ci++){
-      const cent = this.centipedes[ci];
-      for (let si=0; si<cent.segments.length; si++){
-        const s = cent.segments[si];
-        const rect = { x: s.c*CELL+2, y: s.r*CELL+2, w:CELL-4, h:CELL-4 };
-        if (aabb(b.rect(), rect)){
-          b.active = false;
-          if (!this.grid.get(s.c, s.r)) this.grid.set(s.c, s.r, new Mushroom(s.c, s.r));
+      // centipede segments
+      hitLoop: for (let ci=0; ci<this.centipedes.length; ci++){
+        const cent = this.centipedes[ci];
+        for (let si=0; si<cent.segments.length; si++){
+          const s = cent.segments[si];
+          const rect = { x: s.c*CELL+2, y: s.r*CELL+2, w:CELL-4, h:CELL-4 };
+          if (aabb(b.rect(), rect)){
+            b.active = false;
+            if (!this.grid.get(s.c, s.r)) this.grid.set(s.c, s.r, new Mushroom(s.c, s.r));
           const killedHead = si===0;
           const pts = killedHead ? SCORE.HEAD : SCORE.SEGMENT;
           this.addScore(pts);
@@ -462,15 +462,15 @@ export class Engine{
           
           const left = cent.segments.slice(0, si);
           const right = cent.segments.slice(si+1);
-          this.centipedes.splice(ci,1);
-          if (left.length){ left[0].head = true; this.centipedes.push(Object.assign(new Centipede(0,this.level), { segments:left })); }
-          if (right.length){ right[0].head = true; this.centipedes.push(Object.assign(new Centipede(0,this.level), { segments:right })); }
+            this.centipedes.splice(ci,1);
+            if (left.length){ left[0].head = true; this.centipedes.push(Object.assign(new Centipede(0,this.level), { segments:left })); }
+            if (right.length){ right[0].head = true; this.centipedes.push(Object.assign(new Centipede(0,this.level), { segments:right })); }
           return true;
         }
       }
     }
     
-    // spider
+      // spider
     for (const sp of this.spiders){
       if (!sp.dead && aabb(b.rect(), sp.rect())){
         sp.dead = true;
@@ -485,7 +485,7 @@ export class Engine{
       }
     }
     
-    // flea
+      // flea
     for (const f of this.fleas){
       if (!f.dead && aabb(b.rect(), f.rect())){
         f.dead = true;
@@ -499,7 +499,7 @@ export class Engine{
       }
     }
     
-    // scorpion
+      // scorpion
     for (const sc of this.scorpions){
       if (!sc.dead && aabb(b.rect(), sc.rect())){
         sc.dead = true;
@@ -533,7 +533,7 @@ export class Engine{
     
     this.lives--;
     this.player.alive = false;
-    this.shakeT = 0.35;
+  this.shakeT = 0.35;
     this.hitsTaken++;
     
     // Reset combo and chain on death
@@ -579,14 +579,18 @@ export class Engine{
       
       // Update chain
       this.chainHits++;
-      this.chainTimer = SCORE.CHAIN_TIMEOUT;
+      this.chainTimer = SCORING.CHAIN_TIMEOUT;
       
       // Check for chain level up
       for (const [multiplier, required] of Object.entries(SCORING.CHAIN_REQUIREMENTS)) {
         if (this.chainHits === required) {
           const bonus = basePoints * (+multiplier - 1);
           this.addScore(bonus, 'chain');
-          this.addPopup(this.player.x + this.player.w/2, this.player.y, `CHAIN x${multiplier}!`);
+          this.addPopup(
+            this.player.x + this.player.w/2,
+            this.player.y,
+            `CHAIN x${multiplier}!`
+          );
           break;
         }
       }
@@ -659,9 +663,11 @@ export class Engine{
     
     // Remaining mushrooms bonus
     let remainingMushrooms = 0;
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        if (this.grid.get(c, r)) remainingMushrooms++;
+    for (let r = 0; r < GRID.ROWS; r++) {
+      for (let c = 0; c < GRID.COLS; c++) {
+        if (this.grid.get(c, r)) {
+          remainingMushrooms++;
+        }
       }
     }
     totalBonus += remainingMushrooms * SCORE.MUSHROOM_FIELD_BONUS;
@@ -755,7 +761,7 @@ export class Engine{
   }
 
   private backgroundEffects = new BackgroundEffects(this.ctx, this.width, this.height);
-  
+
   private draw(){
     const g = this.ctx;
     g.imageSmoothingEnabled = false;
@@ -809,10 +815,10 @@ export class Engine{
     }
     g.textAlign = 'start';
     
-    // coins
-    for (const c of this.coins){ if(!c.active) continue; g.fillStyle = '#ffd54a'; g.fillRect(c.x, c.y, c.w, c.h); g.fillStyle='#000'; g.fillRect(c.x+5, c.y+3, 2, 6); }
+  // coins
+  for (const c of this.coins){ if(!c.active) continue; g.fillStyle = '#ffd54a'; g.fillRect(c.x, c.y, c.w, c.h); g.fillStyle='#000'; g.fillRect(c.x+5, c.y+3, 2, 6); }
 
-    // player & bullets
+  // player & bullets
     const p = this.player;
     
     // Draw shield effect if active
@@ -822,7 +828,7 @@ export class Engine{
     }
     
     drawPlayer(g, p.x, p.y, p.w, p.h);
-    if (p.flashT>0){ drawMuzzleFlash(g, p.x, p.y, p.w, Math.min(1, p.flashT/0.05)); }
+  if (p.flashT>0){ drawMuzzleFlash(g, p.x, p.y, p.w, Math.min(1, p.flashT/0.05)); }
     for (const b of p.bullets){ if(b.active) drawBullet(g, b.x, b.y); }
     
     // Foreground particles (explosions, impacts, etc.)
@@ -968,7 +974,7 @@ export class Engine{
   private bindInput(){
     const onDown = (e:KeyboardEvent)=>{
       this.keys.add(e.code);
-      if(["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Space"].includes(e.code)) e.preventDefault();
+  if(["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Space"].includes(e.code)) e.preventDefault();
       
       if (e.code === 'Escape' && this.mode === 'playing') {
         this.pause();
