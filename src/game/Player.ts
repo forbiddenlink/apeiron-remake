@@ -139,15 +139,15 @@ export class Player {
   private isDashing = false;
   private dashInvulnTimer = 0;
   
-  update(dt: number, keys: Set<string>) {
+  update(dt: number, input: Set<string> | { vx: number; vy: number; shooting: boolean }) {
     if (!this.alive) return;
     
     // Update timers and cooldowns
     this.updateTimers(dt);
     
     // Handle movement and special abilities
-    this.handleMovement(dt, keys);
-    this.handleSpecialAbilities(dt, keys);
+    this.handleMovement(dt, input);
+    this.handleSpecialAbilities(dt, input);
     
     // Update bullets
     for (const b of this.bullets) {
@@ -196,23 +196,31 @@ export class Player {
     }
   }
   
-  private handleMovement(dt: number, keys: Set<string>) {
+  private handleMovement(dt: number, input: Set<string> | { vx: number; vy: number; shooting: boolean }) {
     // Store previous position
     this.lastX = this.x;
     this.lastY = this.y;
     
     // Calculate movement direction
     let dx = 0, dy = 0;
-    if (keys.has('ArrowLeft')) dx -= 1;
-    if (keys.has('ArrowRight')) dx += 1;
-    if (keys.has('ArrowUp')) dy -= 1;
-    if (keys.has('ArrowDown')) dy += 1;
     
-    // Normalize diagonal movement
-    if (dx !== 0 && dy !== 0) {
-      const norm = Math.sqrt(2);
-      dx /= norm;
-      dy /= norm;
+    if (input instanceof Set) {
+      // Keyboard input
+      if (input.has('ArrowLeft')) dx -= 1;
+      if (input.has('ArrowRight')) dx += 1;
+      if (input.has('ArrowUp')) dy -= 1;
+      if (input.has('ArrowDown')) dy += 1;
+      
+      // Normalize diagonal movement
+      if (dx !== 0 && dy !== 0) {
+        const norm = Math.sqrt(2);
+        dx /= norm;
+        dy /= norm;
+      }
+    } else {
+      // Mouse input - already normalized and scaled
+      dx = input.vx / PLAYER.MOVEMENT.BASE_SPEED;
+      dy = input.vy / (PLAYER.MOVEMENT.BASE_SPEED * PLAYER.MOVEMENT.VERTICAL_MULT);
     }
     
     // Apply speed modifiers
@@ -232,10 +240,16 @@ export class Player {
       this.vx += (targetVX - this.vx) * 1.2 * dt; // Smoother movement in ghost mode
       this.vy += (targetVY - this.vy) * 1.2 * dt;
     } else if (dx !== 0 || dy !== 0) {
-      // Accelerate towards target velocity
-      const accel = PLAYER.MOVEMENT.ACCEL * dt;
-      this.vx += Math.sign(targetVX - this.vx) * accel;
-      this.vy += Math.sign(targetVY - this.vy) * accel;
+      if (input instanceof Set) {
+        // Keyboard: accelerate towards target velocity
+        const accel = PLAYER.MOVEMENT.ACCEL * dt;
+        this.vx += Math.sign(targetVX - this.vx) * accel;
+        this.vy += Math.sign(targetVY - this.vy) * accel;
+      } else {
+        // Mouse: direct velocity control with smoothing
+        this.vx = targetVX;
+        this.vy = targetVY;
+      }
     } else {
       // Decelerate when no input
       const decel = PLAYER.MOVEMENT.DECEL * dt;
@@ -279,10 +293,54 @@ export class Player {
     }
   }
   
-  private handleSpecialAbilities(dt: number, keys: Set<string>) {
-    // Dash ability (Shift key)
-    if (keys.has('ShiftLeft') && this.dashCooldown <= 0 && !this.isDashing) {
-      this.startDash();
+  private handleSpecialAbilities(dt: number, input: Set<string> | { vx: number; vy: number; shooting: boolean }) {
+    // Handle keyboard-specific abilities
+    if (input instanceof Set) {
+      // Dash ability (Shift key)
+      if (input.has('ShiftLeft') && this.dashCooldown <= 0 && !this.isDashing) {
+        this.startDash();
+      }
+      
+      // Ghost mode (Control key)
+      if (input.has('ControlLeft') && this.hasYummy('GHOST') && !this.ghostActive) {
+        this.startGhostMode();
+      }
+      
+      // Nuke (Hold Space)
+      if (input.has('Space')) {
+        if (!this.nukeCharging && this.hasYummy('NUKE')) {
+          this.startNukeCharge();
+        } else if (this.nukeCharging) {
+          this.chargeNuke(dt);
+        }
+      } else if (this.nukeCharging) {
+        this.fireNuke();
+      }
+      
+      // Normal weapon handling (keyboard)
+      if (input.has('Space') && this.cooldown <= 0 && !this.nukeCharging) {
+        this.fire();
+        this.cooldown = this.getFireCooldown();
+      }
+    } else {
+      // Mouse-specific abilities
+      
+      // Nuke (Hold mouse button)
+      if (input.shooting) {
+        if (!this.nukeCharging && this.hasYummy('NUKE')) {
+          this.startNukeCharge();
+        } else if (this.nukeCharging) {
+          this.chargeNuke(dt);
+        }
+      } else if (this.nukeCharging) {
+        this.fireNuke();
+      }
+      
+      // Normal weapon handling (mouse)
+      if (input.shooting && this.cooldown <= 0 && !this.nukeCharging) {
+        this.fire();
+        this.cooldown = this.getFireCooldown();
+      }
     }
     
     // Update dash state
@@ -292,28 +350,6 @@ export class Player {
         this.isDashing = false;
         this.dashCooldown = PLAYER.ABILITIES.DASH_COOLDOWN;
       }
-    }
-    
-    // Ghost mode (Control key)
-    if (keys.has('ControlLeft') && this.hasYummy('GHOST') && !this.ghostActive) {
-      this.startGhostMode();
-    }
-    
-    // Nuke (Hold Space)
-    if (keys.has('Space')) {
-      if (!this.nukeCharging && this.hasYummy('NUKE')) {
-        this.startNukeCharge();
-      } else if (this.nukeCharging) {
-        this.chargeNuke(dt);
-      }
-    } else if (this.nukeCharging) {
-      this.fireNuke();
-    }
-    
-    // Normal weapon handling
-    if (keys.has('Space') && this.cooldown <= 0 && !this.nukeCharging) {
-      this.fire();
-      this.cooldown = this.getFireCooldown();
     }
   }
   
