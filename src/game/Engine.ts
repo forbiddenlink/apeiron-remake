@@ -192,26 +192,53 @@ export class Engine{
       }
     }
     
-    // Update power-ups
+    // Update Yummies (power-ups)
     for (const p of this.powerUps) {
       p.update(dt);
-      // Power-up sparkle effect
+      
+      // Yummy sparkle effect
       if (p.active && this.rand() < 0.1) {
         this.particles.powerUpSparkle(
           p.x + p.w/2 + (Math.random() - 0.5) * p.w,
           p.y + p.h/2 + (Math.random() - 0.5) * p.h,
           p.type
         );
+        
+        // Add floating effect
+        p.y += Math.sin(this.tGlobal * YUMMIES.VISUALS.FLOAT_SPEED * Math.PI * 2) * 
+               YUMMIES.VISUALS.FLOAT_AMPLITUDE * dt;
       }
+      
       // Check for collection
       if (p.active && aabb(this.player.rect(), p.rect())) {
         p.active = false;
         this.player.addPowerUp(p.type);
-        this.addPopup(p.x + p.w/2, p.y + p.h/2, p.type.toUpperCase());
-        // Collection effect
-        for (let i = 0; i < 8; i++) {
-          this.particles.powerUpSparkle(p.x + p.w/2, p.y + p.h/2, p.type);
+        
+        // Show collection popup
+        this.addPopup(
+          p.x + p.w/2,
+          p.y + p.h/2,
+          `YUMMY! ${p.type.toUpperCase()}`
+        );
+        
+        // Collection effects
+        for (let i = 0; i < 12; i++) {
+          const angle = (i / 12) * Math.PI * 2;
+          const radius = GRID.CELL * 0.8;
+          const sparkleX = p.x + p.w/2 + Math.cos(angle) * radius;
+          const sparkleY = p.y + p.h/2 + Math.sin(angle) * radius;
+          this.particles.powerUpSparkle(sparkleX, sparkleY, p.type);
         }
+        
+        // Add energy field effect
+        this.backgroundEffects.addEnergyField(
+          p.x + p.w/2,
+          p.y + p.h/2,
+          2.0
+        );
+        
+        // Play collection sound
+        sfx.powerup();
       }
     }
     
@@ -809,15 +836,33 @@ export class Engine{
   }
 
   private spawnPowerUp(x: number, y: number) {
-    // Don't spawn if we already have too many active power-ups
-    if (this.powerUps.filter(p => p.active).length >= POWERUPS.MAX_ACTIVE) return;
+    // Don't spawn if we already have too many active Yummies
+    if (this.powerUps.filter(p => p.active).length >= YUMMIES.SPAWN.MAX_ACTIVE) {
+      return;
+    }
     
-    // Random power-up type
-    const type = POWERUPS.TYPES[Math.floor(this.rand() * POWERUPS.TYPES.length)];
-    this.powerUps.push(new PowerUp(x - CELL/2, y - CELL/2, type, this.rand));
+    // Random Yummy type
+    const type = YUMMIES.TYPES[Math.floor(this.rand() * YUMMIES.TYPES.length)];
     
-    // Add energy field effect for power-up spawn
+    // Create new Yummy
+    this.powerUps.push(new PowerUp(
+      x - GRID.CELL/2,
+      y - GRID.CELL/2,
+      type,
+      this.rand
+    ));
+    
+    // Add energy field effect for Yummy spawn
     this.backgroundEffects.addEnergyField(x, y, 1.5);
+    
+    // Add sparkle effect
+    for (let i = 0; i < 8; i++) {
+      this.particles.powerUpSparkle(
+        x + (Math.random() - 0.5) * GRID.CELL,
+        y + (Math.random() - 0.5) * GRID.CELL,
+        type
+      );
+    }
   }
 
   private resetGame(keepHi=false){
