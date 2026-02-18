@@ -1,8 +1,10 @@
 import { GRID, MUSHROOMS } from './GameConfig';
 
 export class Mushroom {
-  hp = MUSHROOMS.HP;
+  hp: number = MUSHROOMS.MAX_HP;
   poisoned = false;
+  reflective = false;    // Reflects bullets back at player (high waves)
+  psychedelic = false;   // Rainbow mushroom - triggers point multiplier
   constructor(public c: number, public r: number) {}
   get x() { return this.c * GRID.CELL }
   get y() { return this.r * GRID.CELL }

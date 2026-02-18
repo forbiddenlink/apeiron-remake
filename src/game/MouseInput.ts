@@ -83,7 +83,7 @@ export class MouseInput {
     window.removeEventListener('resize', (this as any)._onResize);
   }
 
-  getInput(): { vx: number; vy: number; shooting: boolean } {
+  getInput(playerX: number, playerY: number): { vx: number; vy: number; shooting: boolean } {
     // Check if mouse has stopped moving
     if (performance.now() - this.lastMoveTime > this.moveTimeout) {
       this.mouseMoved = false;
@@ -99,12 +99,12 @@ export class MouseInput {
       const maxPlayerY = GRID.ROWS * GRID.CELL - GRID.CELL;
 
       // Calculate target position (clamped to player zone)
-      const targetX = Math.max(GRID.CELL, Math.min(this.mouseX, (GRID.COLS - 1) * GRID.CELL));
+      const targetX = Math.max(0, Math.min(this.mouseX, GRID.COLS * GRID.CELL));
       const targetY = Math.max(playerZoneY, Math.min(this.mouseY, maxPlayerY));
 
-      // Calculate direction to target
-      const dx = targetX - (this.mouseX);
-      const dy = targetY - (this.mouseY);
+      // Calculate direction from player toward target cursor position.
+      const dx = targetX - playerX;
+      const dy = targetY - playerY;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
       if (dist > 0) {

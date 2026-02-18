@@ -1,204 +1,227 @@
-// GameConfig.ts - Central configuration for Apeiron remake
-// All values are easily adjustable for tuning to match original game
+import {
+  CELL,
+  COLS,
+  ROWS,
+  PLAYER_ROWS,
+  SCORE,
+  SCORING as BASE_SCORING,
+  EXTRA_LIFE_STEP,
+  SPEED,
+  TIMERS,
+  DENSITY,
+  VISUAL,
+  POWERUPS as BASE_POWERUPS,
+  PLAYER_MECHANICS,
+  POWERUP_COLORS as BASE_POWERUP_COLORS,
+  REFLECTED_BULLET,
+  PSYCHEDELIC,
+  COINS
+} from './Constants';
+
+export { CELL, COLS, ROWS, PLAYER_ROWS, SCORE, EXTRA_LIFE_STEP, TIMERS, DENSITY, VISUAL, REFLECTED_BULLET, PSYCHEDELIC, COINS };
 
 export const GRID = {
-  CELL: 16,                // Size of each grid cell in pixels
-  COLS: 40,               // 640/16 - Screen width in cells
-  ROWS: 50,               // 800/16 - Screen height in cells
-  PLAYER_ROWS: 4,         // Number of rows in player zone at bottom
+  CELL,
+  COLS,
+  ROWS,
+  PLAYER_ROWS,
+} as const;
+
+export const SCORING = {
+  ...BASE_SCORING,
+  CHAIN_TIMEOUT: SCORE.CHAIN_TIMEOUT
 } as const;
 
 export const XQJ37_BLASTER = {
-  // Base weapon mechanics
-  MAX_PROJECTILES: 1,     // Only one shot on screen at a time
-  FIRE_RATE: 0.18,       // Seconds between shots
-  PROJECTILE_SPEED: 640,  // Pixels per second
-  MUZZLE_FLASH_TIME: 0.05,// Duration of muzzle flash effect
-  
-  // Power-up modifications
-  MACHINE_GUN_RATE: 0.05, // Faster fire rate with machine gun
-  GUIDED_TURN_RATE: 180,  // Degrees per second for guided shots
-  TRIPLE_SHOT_ANGLE: 30,  // Degrees between triple shot projectiles
+  MAX_PROJECTILES: 1,
+  FIRE_RATE: TIMERS.FIRE_COOLDOWN,
+  PROJECTILE_SPEED: SPEED.BULLET_PX_PER_SEC,
+  MUZZLE_FLASH_TIME: 0.05,
+  MACHINE_GUN_RATE: TIMERS.AUTOFIRE_COOLDOWN,
+  GUIDED_TURN_RATE: BASE_POWERUPS.GUIDED_SHOT_TURN_RATE,
+  TRIPLE_SHOT_ANGLE: BASE_POWERUPS.TRIPLE_SHOT_ANGLE
+} as const;
+
+const LARRY_THE_SCOBSTER = {
+  SPEED_PX_PER_SEC_X: SPEED.SPIDER_PX_PER_SEC_X,
+  SPEED_PX_PER_SEC_Y: SPEED.SPIDER_PX_PER_SEC_Y,
+  SCORE_NEAR: SCORE.SPIDER_NEAR,
+  SCORE_MED: SCORE.SPIDER_MED,
+  SCORE_FAR: SCORE.SPIDER_FAR,
+  SPAWN_MIN_TIME: TIMERS.SPAWN_SPIDER_MIN,
+  SPAWN_MAX_TIME: TIMERS.SPAWN_SPIDER_MAX
+} as const;
+
+const GROUCHO_THE_FLICK = {
+  SPEED_PX_PER_SEC_Y: SPEED.FLEA_PX_PER_SEC_Y,
+  SCORE: SCORE.FLEA,
+  MUSHROOM_DROP_CHANCE: 0.08,
+  PLAYER_ROWS_MIN_MUSHES: DENSITY.PLAYER_ROWS_MIN_MUSHES,
+  SPAWN_COOLDOWN: TIMERS.SPAWN_FLEA_COOLDOWN
+} as const;
+
+const GORDON_THE_GECKO = {
+  SPEED_PX_PER_SEC_X: SPEED.SCORPION_PX_PER_SEC_X,
+  SCORE: SCORE.SCORPION,
+  SPAWN_MIN_TIME: TIMERS.SPAWN_SCORPION_MIN,
+  SPAWN_MAX_TIME: TIMERS.SPAWN_SCORPION_MAX
+} as const;
+
+const UFO = {
+  SPEED_PX_PER_SEC_X: 180,
+  SCORE: 1500,
+  SPAWN_MIN_TIME: 15,
+  SPAWN_MAX_TIME: 30,
+  SPAWN_CHANCE: 0.25,
+  MUSHROOM_DESTROY_RADIUS: CELL * 1.5
 } as const;
 
 export const ENEMIES = {
-  // Pentipede (main enemy)
   PENTIPEDE: {
-    SPEED: 8,             // Cells per second
-    DESCENT: 1,           // Cells to descend on turn
-    SEGMENT_POINTS: 10,   // Points for regular segment
-    HEAD_POINTS: 100,     // Points for head segment
-    POISON_SPEED_MULT: 2, // Speed multiplier when poisoned
+    SPEED_CELLS_PER_SEC: SPEED.CENTIPEDE_CELLS_PER_SEC,
+    SPEED: SPEED.CENTIPEDE_CELLS_PER_SEC,
+    DESCENT: 1,
+    SEGMENT_POINTS: SCORE.SEGMENT,
+    HEAD_POINTS: SCORE.HEAD,
+    POISON_SPEED_MULT: 2
   },
-  
-  // Groucho the Flick (Flea)
-  GROUCHO: {
-    SPEED_Y: 220,         // Vertical speed in pixels/sec
-    POINTS: 200,          // Score value
-    MUSHROOM_DROP_CHANCE: 0.3, // 30% chance to drop mushroom
-    SPAWN_THRESHOLD: 5,   // Spawn when fewer mushrooms in player zone
-  },
-  
-  // Larry the Scobster (Spider)
+  LARRY_THE_SCOBSTER,
+  GROUCHO_THE_FLICK,
+  GORDON_THE_GECKO,
+  UFO,
+  // Back-compat aliases used by partially migrated files.
   LARRY: {
-    SPEED_X: 160,         // Horizontal speed in pixels/sec
-    SPEED_Y: 120,         // Vertical speed in pixels/sec
-    POINTS_NEAR: 900,     // Points when close to player
-    POINTS_MED: 600,      // Points at medium distance
-    POINTS_FAR: 300,      // Points when far from player
-    SPAWN_MIN: 3.5,       // Minimum spawn delay
-    SPAWN_MAX: 7.5,       // Maximum spawn delay
+    SPEED_X: LARRY_THE_SCOBSTER.SPEED_PX_PER_SEC_X,
+    SPEED_Y: LARRY_THE_SCOBSTER.SPEED_PX_PER_SEC_Y,
+    POINTS_NEAR: LARRY_THE_SCOBSTER.SCORE_NEAR,
+    POINTS_MED: LARRY_THE_SCOBSTER.SCORE_MED,
+    POINTS_FAR: LARRY_THE_SCOBSTER.SCORE_FAR,
+    SPAWN_MIN: LARRY_THE_SCOBSTER.SPAWN_MIN_TIME,
+    SPAWN_MAX: LARRY_THE_SCOBSTER.SPAWN_MAX_TIME
   },
-  
-  // Gordon the Gecko (Scorpion)
+  GROUCHO: {
+    SPEED_Y: GROUCHO_THE_FLICK.SPEED_PX_PER_SEC_Y,
+    POINTS: GROUCHO_THE_FLICK.SCORE,
+    MUSHROOM_DROP_CHANCE: GROUCHO_THE_FLICK.MUSHROOM_DROP_CHANCE,
+    SPAWN_THRESHOLD: GROUCHO_THE_FLICK.PLAYER_ROWS_MIN_MUSHES
+  },
   GORDON: {
-    SPEED_X: 140,         // Horizontal speed in pixels/sec
-    POINTS: 1000,         // Score value
-    POISON_DURATION: 5.0, // How long mushrooms stay poisoned
-    SPAWN_MIN: 6.0,       // Minimum spawn delay
-    SPAWN_MAX: 12.0,      // Maximum spawn delay
-  },
-  
-  // UFO
-  UFO: {
-    SPEED_X: 180,         // Horizontal speed in pixels/sec
-    POINTS: 1500,         // Score value
-    SPAWN_MIN: 15.0,      // Minimum spawn delay
-    SPAWN_MAX: 30.0,      // Maximum spawn delay
+    SPEED_X: GORDON_THE_GECKO.SPEED_PX_PER_SEC_X,
+    POINTS: GORDON_THE_GECKO.SCORE,
+    POISON_DURATION: 5,
+    SPAWN_MIN: GORDON_THE_GECKO.SPAWN_MIN_TIME,
+    SPAWN_MAX: GORDON_THE_GECKO.SPAWN_MAX_TIME
   }
 } as const;
 
 export const YUMMIES = {
-  // Duration in seconds for each power-up
   DURATIONS: {
-    MACHINE_GUN: 10.0,    // Rapid fire mode
-    GUIDED_SHOT: 12.0,    // Shots follow enemies
-    TRIPLE_SHOT: 8.0,     // Three-way spread
-    SHIELD: 6.0,          // Invulnerability
-    SPEED_BOOST: 15.0,    // Faster movement
-    GHOST_MODE: 5.0,      // Pass through mushrooms
-    NUKE: 3.0,            // Screen-clearing explosion
+    MACHINE_GUN: BASE_POWERUPS.MACHINE_GUN_DURATION,
+    GUIDED_SHOT: BASE_POWERUPS.GUIDED_SHOT_DURATION,
+    TRIPLE_SHOT: BASE_POWERUPS.TRIPLE_SHOT_DURATION,
+    SHIELD: BASE_POWERUPS.SHIELD_DURATION,
+    SPEED_BOOST: BASE_POWERUPS.SPEED_BOOST_DURATION,
+    GHOST_MODE: BASE_POWERUPS.GHOST_MODE_DURATION,
+    NUKE: BASE_POWERUPS.NUKE_DURATION
   },
-  
-  // Visual effects
   VISUALS: {
-    FADE_TIME: 0.5,       // Time to fade in/out
-    FLOAT_AMPLITUDE: 4,   // Pixels to float up/down
-    FLOAT_SPEED: 2,       // Float cycles per second
-    GLOW_INTENSITY: 0.3,  // Intensity of glow effect
-    SHIELD_FLASH_RATE: 0.1, // Shield flicker rate
+    FADE_TIME: BASE_POWERUPS.FADE_TIME,
+    FLOAT_AMPLITUDE: BASE_POWERUPS.FLOAT_AMPLITUDE,
+    FLOAT_SPEED: BASE_POWERUPS.FLOAT_SPEED,
+    SHIELD_FLASH_RATE: BASE_POWERUPS.SHIELD_FLASH_RATE
   },
-  
-  // Spawn settings
   SPAWN: {
-    CHANCE: 0.2,          // 20% chance for enemies to drop
-    MAX_ACTIVE: 2,        // Maximum number active at once
-    MIN_SPACING: 3.0,     // Minimum seconds between spawns
+    CHANCE: BASE_POWERUPS.SPAWN_CHANCE,
+    MAX_ACTIVE: BASE_POWERUPS.MAX_ACTIVE,
+    MIN_SPACING: 3
   },
-  
-  // Colors for each type
+  TYPES: BASE_POWERUPS.TYPES,
   COLORS: {
-    MACHINE_GUN: '#ffd700', // Gold
-    GUIDED: '#ff1744',      // Red
-    TRIPLE: '#ff4081',      // Pink
-    SHIELD: '#64ffda',      // Teal
-    SPEED: '#40c4ff',       // Blue
-    GHOST: '#b388ff',       // Purple
-    NUKE: '#ff9100'         // Orange
+    MACHINE_GUN: BASE_POWERUP_COLORS.machine_gun,
+    GUIDED: BASE_POWERUP_COLORS.guided,
+    TRIPLE: BASE_POWERUP_COLORS.triple,
+    SHIELD: BASE_POWERUP_COLORS.shield,
+    SPEED: BASE_POWERUP_COLORS.speed,
+    GHOST: BASE_POWERUP_COLORS.ghost,
+    NUKE: BASE_POWERUP_COLORS.nuke
   }
 } as const;
 
+export const POWERUPS = {
+  ...BASE_POWERUPS,
+  AUTOFIRE_DURATION: BASE_POWERUPS.MACHINE_GUN_DURATION,
+  SPREAD_SHOT_DURATION: BASE_POWERUPS.TRIPLE_SHOT_DURATION,
+  RAPID_FIRE_DURATION: BASE_POWERUPS.MACHINE_GUN_DURATION,
+  ENERGY_SHIELD_DURATION: BASE_POWERUPS.SHIELD_DURATION,
+  WARP_SPEED_DURATION: BASE_POWERUPS.SPEED_BOOST_DURATION,
+  PHASE_SHIFT_DURATION: BASE_POWERUPS.GHOST_MODE_DURATION,
+  MEGA_BLAST_DURATION: BASE_POWERUPS.NUKE_DURATION,
+  SPREAD_SHOT_ANGLE: BASE_POWERUPS.TRIPLE_SHOT_ANGLE,
+  RAPID_FIRE_MULTIPLIER: 2.5,
+  SHIELD_FLASH_RATE: BASE_POWERUPS.SHIELD_FLASH_RATE,
+  WARP_SPEED_MULTIPLIER: BASE_POWERUPS.SPEED_BOOST_MULT,
+  PHASE_SHIFT_COOLDOWN: 1.0,
+  MEGA_BLAST_RADIUS: BASE_POWERUPS.NUKE_RADIUS
+} as const;
+
+export const POWERUP_COLORS = {
+  autofire: BASE_POWERUP_COLORS.machine_gun,
+  spread: BASE_POWERUP_COLORS.triple,
+  rapid: '#40c4ff',
+  shield: BASE_POWERUP_COLORS.shield,
+  warp: BASE_POWERUP_COLORS.speed,
+  phase: BASE_POWERUP_COLORS.ghost,
+  mega: BASE_POWERUP_COLORS.nuke,
+  machine_gun: BASE_POWERUP_COLORS.machine_gun,
+  guided: BASE_POWERUP_COLORS.guided,
+  triple: BASE_POWERUP_COLORS.triple,
+  speed: BASE_POWERUP_COLORS.speed,
+  ghost: BASE_POWERUP_COLORS.ghost,
+  nuke: BASE_POWERUP_COLORS.nuke
+} as const;
+
 export const PLAYER = {
-  // Movement
   MOVEMENT: {
-    BASE_SPEED: 360,      // Base movement speed
-    ACCEL: 2400,          // Acceleration rate
-    DECEL: 1800,          // Deceleration rate
-    VERTICAL_MULT: 0.85,  // Vertical movement multiplier
-    MOMENTUM_DECAY: 0.92, // Momentum retention per frame
-    MAX_VELOCITY: 600,    // Maximum velocity
+    BASE_SPEED: SPEED.PLAYER_PX_PER_SEC,
+    ACCEL: SPEED.PLAYER_ACCEL,
+    DECEL: SPEED.PLAYER_DECEL,
+    VERTICAL_MULT: SPEED.PLAYER_VERTICAL_MULT,
+    MOMENTUM_DECAY: PLAYER_MECHANICS.MOMENTUM_DECAY,
+    MAX_VELOCITY: PLAYER_MECHANICS.MAX_VELOCITY
   },
-  
-  // Crystal size
   SIZE: {
-    WIDTH: GRID.CELL * 1.2,
-    HEIGHT: GRID.CELL * 0.9,
+    WIDTH: GRID.CELL * 1.42,
+    HEIGHT: GRID.CELL * 1.08
   },
-  
-  // Special abilities
   ABILITIES: {
-    MAX_ENERGY: 100,      // Maximum energy points
-    ENERGY_REGEN: 10,     // Energy points per second
-    DASH_SPEED: 3.0,      // Speed multiplier during dash
-    DASH_DURATION: 0.15,  // Seconds
-    DASH_COOLDOWN: 0.35,  // Seconds between dashes
-    DASH_INVULN: 0.2,     // Invulnerability after dash
+    MAX_ENERGY: PLAYER_MECHANICS.MAX_ENERGY,
+    ENERGY_REGEN: PLAYER_MECHANICS.ENERGY_REGEN,
+    DASH_SPEED: PLAYER_MECHANICS.DASH_SPEED,
+    DASH_DURATION: PLAYER_MECHANICS.DASH_DURATION,
+    DASH_COOLDOWN: PLAYER_MECHANICS.DASH_COOLDOWN,
+    DASH_INVULN: PLAYER_MECHANICS.DASH_INVULN
   }
 } as const;
 
 export const MUSHROOMS = {
-  // Visual
-  SIZE: GRID.CELL * 0.8,  // Slightly smaller than grid cell
-  MAX_HP: 4,              // Hits to destroy
-  
-  // Scoring
+  SIZE: GRID.CELL * 0.8,
+  MAX_HP: 4,
   POINTS: {
-    HIT: 1,               // Points per hit
-    CLEAR: 4,             // Bonus for clearing
-    FIELD_BONUS: 100,     // Points per mushroom at level end
+    HIT: SCORE.MUSHROOM_HIT,
+    CLEAR: SCORE.MUSHROOM_CLEAR_BONUS,
+    FIELD_BONUS: SCORE.MUSHROOM_FIELD_BONUS
   },
-  
-  // Effects
   POISON: {
-    DURATION: 5.0,        // How long poison lasts
-    SPREAD_CHANCE: 0.2,   // 20% chance to spread to adjacent
+    DURATION: 5,
+    SPREAD_CHANCE: 0.2
   }
 } as const;
 
-export const SCORING = {
-  // Chain system
-  CHAIN: {
-    MULTIPLIER: 1.5,      // Each chain increases score by 50%
-    MAX_CHAIN: 8,         // Maximum chain multiplier
-    TIMEOUT: 2.0,         // Seconds before chain resets
-    REQUIREMENTS: {       // Hits needed for each chain level
-      2: 3,  // 3 hits for 2x
-      3: 5,  // 5 hits for 3x
-      4: 8,  // 8 hits for 4x
-      5: 12, // 12 hits for 5x
-      6: 16, // 16 hits for 6x
-      7: 20, // 20 hits for 7x
-      8: 25  // 25 hits for 8x
-    }
-  },
-  
-  // Level bonuses
-  BONUSES: {
-    PERFECT_CLEAR: 5000,  // No mushrooms lost
-    SPEED_CLEAR: 2000,    // Under par time
-    NO_HIT: 3000,         // No damage taken
-    COMPLETION: 1000,     // Base level completion
-    LEVEL_MULT: 0.5,      // Each level adds 50% to scores
-  },
-  
-  // Par times for speed bonus
-  PAR_TIMES: {
-    EASY: 45,    // Levels 1-5
-    MEDIUM: 60,  // Levels 6-10
-    HARD: 75,    // Levels 11-15
-    EXPERT: 90   // Levels 16+
-  },
-  
-  // Extra lives
-  EXTRA_LIFE_STEP: 12000  // Award at 12k, 24k, etc.
-} as const;
-
-// Debug settings
 export const DEBUG = {
-  SHOW_HITBOXES: false,   // Show collision boundaries
-  SHOW_PATHS: false,      // Show enemy movement paths
-  SHOW_GRID: false,       // Show grid overlay
-  SHOW_FPS: false,        // Show FPS counter
-  INVINCIBLE: false,      // Player can't die
-  INFINITE_YUMMIES: false // Power-ups don't expire
+  SHOW_HITBOXES: false,
+  SHOW_PATHS: false,
+  SHOW_GRID: false,
+  SHOW_FPS: false,
+  INVINCIBLE: false,
+  INFINITE_YUMMIES: false
 } as const;

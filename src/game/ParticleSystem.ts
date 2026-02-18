@@ -297,6 +297,11 @@ export class ParticleSystem {
     this.emitImpact(x, y, '#ffffff');
     this.emitEnergy(x, y, '#e1f5fe');
   }
+
+  emitPoison(x: number, y: number) {
+    this.emitEnergy(x, y, '#ff4fc8');
+    this.emitSparkle(x + (Math.random() - 0.5) * 4, y + (Math.random() - 0.5) * 4, '#ff8adf');
+  }
   
   playerTrail(x: number, y: number) {
     this.emitTrail(x, y, '#84ffff');

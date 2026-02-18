@@ -221,6 +221,39 @@ export const sfx = {
     setTimeout(() => noise(0.5, 0.15, 'brown'), 180);
   },
   
+  // RASPBERRY sound - "pffttt" for missed bonuses (like original Apeiron!)
+  raspberry() {
+    noise(0.25, 0.12, 'pink');
+    fmOsc(120, 40, 30, 0.2, 'sawtooth', 0.15);
+    setTimeout(() => fmOsc(80, 30, 20, 0.15, 'sawtooth', 0.12), 100);
+  },
+
+  // JUGGLE sound - bouncy boing that increases pitch with each juggle
+  juggle(juggleCount: number) {
+    const basePitch = 300 + juggleCount * 100;
+    fmOsc(basePitch, basePitch * 0.5, 40, 0.15, 'sine', 0.2);
+    setTimeout(() => fmOsc(basePitch * 1.2, basePitch * 0.4, 30, 0.1, 'sine', 0.15), 80);
+  },
+
+  // COIN collect sound - cheerful ding
+  coin() {
+    fmOsc(880, 220, 60, 0.1, 'sine', 0.18);
+    setTimeout(() => fmOsc(1100, 275, 70, 0.08, 'sine', 0.15), 50);
+  },
+
+  // COIN FRENZY start - exciting cascade
+  coinFrenzy() {
+    for (let i = 0; i < 5; i++) {
+      setTimeout(() => fmOsc(600 + i * 100, 150 + i * 25, 50, 0.12, 'sine', 0.15), i * 60);
+    }
+  },
+
+  // REFLECTED bullet warning - metallic ping
+  reflect() {
+    fmOsc(1200, 300, 80, 0.1, 'triangle', 0.2);
+    noise(0.08, 0.08, 'white');
+  },
+
   // Volume control
   setVolume(volume: number) {
     // Volume is 0-100, convert to 0-1

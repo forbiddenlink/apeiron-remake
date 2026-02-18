@@ -1,6 +1,6 @@
 export const CELL = 16;           // px
-export const COLS = 40;           // 640/16
-export const ROWS = 50;           // 800/16
+export const COLS = 37;           // Apeiron X-style field width: 592/16 (sidebar occupies remaining canvas width)
+export const ROWS = 37;           // Apeiron X-style field height: 592/16
 export const PLAYER_ROWS = 4;     // player zone rows at bottom
 
 export const SCORE = {
@@ -11,9 +11,19 @@ export const SCORE = {
   SPIDER_NEAR: 900,
   SPIDER_MED: 600,
   SPIDER_FAR: 300,
-  SCORPION: 1000,
+  SCORPION: 1500,
   MUSHROOM_HIT: 1,
+  POISON_MUSHROOM_HIT: 5,
+  SPACESHIP_MIN: 500,
+  SPACESHIP_MAX: 3000,
+  FALLING_MUSHROOM: 3000,
+  FALLING_POISON_MUSHROOM: 6000,
   MUSHROOM_CLEAR_BONUS: 4,
+  PSYCHEDELIC_MUSHROOM: 500,       // Bonus for shooting psychedelic mushroom
+  COIN: 100,                        // Points per coin collected
+  COIN_FRENZY_BONUS: 1000,         // Bonus for collecting many coins
+  JUGGLE_BASE: 3000,               // Base score for juggling falling mushroom
+  JUGGLE_MULTIPLIER: 2,            // Multiplier per additional juggle
   
   // Chain bonuses
   CHAIN_MULTIPLIER: 1.5,    // Each chain hit increases score by 50%
@@ -59,7 +69,7 @@ export const SCORING = {
   }
 } as const;
 
-export const EXTRA_LIFE_STEP = 12000; // award at 12k, 24k, ...
+export const EXTRA_LIFE_STEP = 20000; // classic Apeiron FAQ: every 20k
 
 // base speeds (cells/sec or px/sec)
 export const SPEED = {
@@ -69,8 +79,8 @@ export const SPEED = {
   PLAYER_ACCEL: 2400,          // Units per second^2
   PLAYER_DECEL: 1800,          // Units per second^2
   PLAYER_VERTICAL_MULT: 0.85,  // Vertical movement multiplier
-  SPIDER_PX_PER_SEC_X: 160,
-  SPIDER_PX_PER_SEC_Y: 120,
+  SPIDER_PX_PER_SEC_X: 130,  // Slightly slower for better gameplay
+  SPIDER_PX_PER_SEC_Y: 95,
   FLEA_PX_PER_SEC_Y: 220,
   SCORPION_PX_PER_SEC_X: 140
 } as const;
@@ -79,13 +89,39 @@ export const TIMERS = {
   FIXED_DT: 1/60,
   FIRE_COOLDOWN: 0.18,
   AUTOFIRE_COOLDOWN: 0.06,
-  SPAWN_SPIDER_MIN: 3.5,
-  SPAWN_SPIDER_MAX: 7.5,
+  SPAWN_SPIDER_MIN: 5.0,   // Give players more time before first spider
+  SPAWN_SPIDER_MAX: 10.0,
   SPAWN_FLEA_COOLDOWN: 2.0,
   SPAWN_SCORPION_MIN: 6.0,
   SPAWN_SCORPION_MAX: 12.0,
   COIN_SPAWN_MIN: 10.0,
-  COIN_SPAWN_MAX: 20.0
+  COIN_SPAWN_MAX: 20.0,
+  PSYCHEDELIC_DURATION: 4.0,       // Duration of psychedelic effect
+  COIN_FRENZY_DURATION: 5.0        // Duration of coin frenzy
+} as const;
+
+// Reflected bullet settings (high difficulty waves)
+export const REFLECTED_BULLET = {
+  SPEED_MULTIPLIER: 2.0,           // Reflected bullets move 2x faster
+  START_WAVE: 15,                  // First wave with reflective mushrooms
+  CHANCE_PER_WAVE: 0.015,          // Additional chance per wave after START_WAVE
+  MAX_CHANCE: 0.12                 // Maximum 12% of mushrooms reflective
+} as const;
+
+// Psychedelic mushroom settings
+export const PSYCHEDELIC = {
+  SPAWN_CHANCE: 0.02,              // 2% chance per mushroom
+  POINT_MULTIPLIER: 3,             // 3x points during effect
+  START_WAVE: 3                    // First wave with psychedelic mushrooms
+} as const;
+
+// Coin system settings
+export const COINS = {
+  DROP_CHANCE: 0.15,               // 15% chance on enemy kill
+  FRENZY_CHANCE: 0.08,             // 8% chance to trigger frenzy
+  FRENZY_COUNT: 30,                // Coins in a frenzy
+  FALL_SPEED: 180,                 // Pixels per second
+  MAX_ACTIVE: 50                   // Maximum coins on screen
 } as const;
 
 export const DENSITY = {
@@ -99,23 +135,20 @@ export const VISUAL = {
 } as const;
 
 export const POWERUPS = {
-  // Duration in seconds for each Yummy
-  MACHINE_GUN_DURATION: 10.0,    // Rapid fire mode
-  GUIDED_SHOT_DURATION: 12.0,    // Shots follow enemies
-  TRIPLE_SHOT_DURATION: 8.0,     // Three-way spread
-  SHIELD_DURATION: 6.0,          // Invulnerability
-  SPEED_BOOST_DURATION: 15.0,    // Faster movement
-  GHOST_MODE_DURATION: 5.0,      // Pass through mushrooms
-  NUKE_DURATION: 3.0,            // Screen-clearing explosion
+  // Classic Apeiron Yummies (manual names)
+  MACHINE_GUN_DURATION: 10.0,
+  GUIDED_SHOT_DURATION: 12.0,
+  DIAMOND_DURATION: 10.0,      // pass through mushrooms
+  SHIELD_DURATION: 6.0,
+  LOCK_DURATION: 12.0,
+  HOUSE_CLEANING_DURATION: 0.0, // instant effect
+  EXTRA_MAN_DURATION: 0.0,      // instant effect
   
   // Power-up effects
-  TRIPLE_SHOT_ANGLE: 30,         // degrees between shots
   MACHINE_GUN_RATE: 0.05,        // seconds between shots
   GUIDED_SHOT_TURN_RATE: 180,    // degrees per second
   SHIELD_FLASH_RATE: 0.1,        // shield flicker rate
-  SPEED_BOOST_MULT: 1.75,        // movement speed multiplier
-  GHOST_FADE_ALPHA: 0.5,         // transparency in ghost mode
-  NUKE_RADIUS: 400,             // blast radius in pixels
+  DIAMOND_FADE_ALPHA: 0.5,
   
   // Spawn settings ("Yummies")
   SPAWN_CHANCE: 0.2,            // 20% chance for enemies to drop Yummies
@@ -125,7 +158,17 @@ export const POWERUPS = {
   FLOAT_SPEED: 2,             // Float cycles per second
   
   // Yummy types
-  TYPES: ['machine_gun', 'guided', 'triple', 'shield', 'speed', 'ghost', 'nuke'] as const
+  TYPES: ['guided', 'diamond', 'machine_gun', 'shield', 'lock', 'house_cleaning', 'extra_man'] as const,
+
+  // Legacy aliases retained while old code paths are removed.
+  TRIPLE_SHOT_DURATION: 0.0,
+  SPEED_BOOST_DURATION: 0.0,
+  GHOST_MODE_DURATION: 0.0,
+  NUKE_DURATION: 0.0,
+  TRIPLE_SHOT_ANGLE: 30,
+  SPEED_BOOST_MULT: 1.0,
+  GHOST_FADE_ALPHA: 0.0,
+  NUKE_RADIUS: 0
 } as const;
 
 // Special weapon mechanics
@@ -164,11 +207,16 @@ export const PLAYER_MECHANICS = {
 
 // Yummy colors for visual effects
 export const POWERUP_COLORS = {
-  machine_gun: '#ffd700',  // Gold
-  guided: '#ff1744',       // Red
-  triple: '#ff4081',       // Pink
-  shield: '#64ffda',       // Teal
-  speed: '#40c4ff',        // Blue
-  ghost: '#b388ff',        // Purple
-  nuke: '#ff9100'          // Orange
+  guided: '#ff1744',          // Squiggly line
+  diamond: '#40c4ff',         // Diamond
+  machine_gun: '#ffd700',     // Vertical dashes
+  shield: '#64ffda',          // Sprinkly shield
+  lock: '#ff4081',            // Lock
+  house_cleaning: '#8bc34a',  // House-cleaning
+  extra_man: '#ffffff',       // Extra life
+  // Legacy aliases kept for compatibility references.
+  triple: '#ff4081',
+  speed: '#40c4ff',
+  ghost: '#b388ff',
+  nuke: '#ff9100'
 } as const;

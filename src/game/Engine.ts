@@ -1,27 +1,61 @@
-import { GRID, SCORE, SCORING, EXTRA_LIFE_STEP, VISUAL, YUMMIES, XQJ37_BLASTER, ENEMIES, DEBUG } from './GameConfig';
+import { GRID, SCORE, SCORING, EXTRA_LIFE_STEP, VISUAL, YUMMIES, ENEMIES, DEBUG, POWERUPS, POWERUP_COLORS, TIMERS, REFLECTED_BULLET, PSYCHEDELIC, COINS } from './GameConfig';
 import { Grid, Mushroom } from './Grid';
-import { Player, PowerUpType } from './Player';
+import { Player, type PowerUpType, type Bullet } from './Player';
 import { Centipede } from './Centipede';
 import { Spider, Flea, Scorpion } from './Enemies';
 import { UFO } from './UFO';
 import { PowerUp } from './PowerUp';
 import { ParticleSystem } from './ParticleSystem';
+import { BackgroundEffects } from './BackgroundEffects';
+import { MouseInput } from './MouseInput';
 import { aabb } from './Types';
-import { drawMushroom, drawSegment, drawSpider, drawFlea, drawScorpion, drawPlayer, drawBullet, drawMuzzleFlash } from './ProceduralSprites';
+import {
+  drawMushroom,
+  drawSegment,
+  drawSpider,
+  drawFlea,
+  drawScorpion,
+  drawUFO,
+  drawPlayer,
+  drawBullet,
+  drawMuzzleFlash,
+  type VisualProfile
+} from './ProceduralSprites';
 import { sfx } from './AudioSynth';
 import { makeRng } from './RNG';
+import { DEFAULT_GAME_MODE, getFallingMushroomChance, getLevelTuning, getTouchdownRules, usesModernScoring, type GameMode } from './GameMode';
+import { WEAPONS } from './Constants';
+
+const CELL = GRID.CELL;
+const COLS = GRID.COLS;
+const ROWS = GRID.ROWS;
+const PLAYER_ROWS = GRID.PLAYER_ROWS;
+const FIELD_W = COLS * CELL;
+
+type EngineSettings = {
+  gameMode: GameMode;
+  musicVolume: number;
+  sfxVolume: number;
+  particleDensity: 'low' | 'medium' | 'high';
+  screenShake: boolean;
+  showHitboxes: boolean;
+  showFPS: boolean;
+};
+
+type EngineMode = 'title' | 'playing' | 'pause' | 'gameover';
 
 export class Engine{
   private ctx:CanvasRenderingContext2D;
   private raf=0; private running=false; private last=0; private acc=0;
   private keys = new Set<string>();
   private rand = makeRng(0xC0FFEE);
-  mode: 'title' | 'playing' | 'pause' | 'gameover' = 'title';
-  onStateChange?: (state: { mode: typeof this.mode; score: number; highScore: number; level: number }) => void;
-  settings = {
+  mode: EngineMode = 'title';
+  onStateChange?: (state: { mode: EngineMode; score: number; highScore: number; level: number }) => void;
+  settings: EngineSettings = {
+    gameMode: DEFAULT_GAME_MODE,
     musicVolume: 70,
     sfxVolume: 80,
-    particleDensity: 'medium' as const,
+    particleDensity: 'low',
     screenShake: true,
     showHitboxes: DEBUG.SHOW_HITBOXES,
     showFPS: DEBUG.SHOW_FPS
@@ -44,8 +78,18 @@ export class Engine{
   scorpions: Scorpion[] = [];
   ufos: UFO[] = [];
   powerUps: PowerUp[] = [];
-  coins: {x:number,y:number,w:number,h:number,active:boolean}[] = [];
+  fallingMushrooms: {x:number,y:number,w:number,h:number,vy:number,poisoned:boolean,active:boolean,juggleCount:number}[] = [];
+  reflectedBullets: {x:number,y:number,vy:number,active:boolean}[] = [];
+  coins: {x:number,y:number,vy:number,active:boolean,value:number}[] = [];
   particles = new ParticleSystem();
+
+  // Psychedelic effect state
+  private psychedelicTimer = 0;
+  private psychedelicMultiplier = 1;
+
+  // Coin frenzy state
+  private coinFrenzyActive = false;
+  private coinsCollected = 0;
   
   // Scoring mechanics
   private combo = 1;
@@ -56,13 +100,15 @@ export class Engine{
   private initialMushrooms = 0;
   private mushroomsLost = 0;
   private hitsTaken = 0;
+  private fleaMultiplier = 1;
+  private sidebarBonus = 0;
 
   private spiderTimer = randRange(
     ENEMIES.LARRY_THE_SCOBSTER.SPAWN_MIN_TIME,
     ENEMIES.LARRY_THE_SCOBSTER.SPAWN_MAX_TIME,
     this.rand
   );
-  private fleaCd = ENEMIES.GROUCHO_THE_FLICK.SPAWN_COOLDOWN;
+  private fleaCd: number = ENEMIES.GROUCHO_THE_FLICK.SPAWN_COOLDOWN;
   private scorpionTimer = randRange(
     ENEMIES.GORDON_THE_GECKO.SPAWN_MIN_TIME,
     ENEMIES.GORDON_THE_GECKO.SPAWN_MAX_TIME,
@@ -73,9 +119,22 @@ export class Engine{
     ENEMIES.UFO.SPAWN_MAX_TIME,
     this.rand
   );
+  private touchdownFriendCd = 0;
+  private backgroundEffects: BackgroundEffects;
+  private mouseInput: MouseInput;
+  private sidebarTexture: HTMLCanvasElement | null = null;
+  private sidebarTextureWidth = 0;
+  private sidebarLogo: HTMLImageElement | null = null;
+  private sidebarLogoReady = false;
 
   constructor(private canvas:HTMLCanvasElement, private width:number, private height:number){
     const c = canvas.getContext('2d'); if (!c) throw new Error('No 2D context'); this.ctx = c;
+    this.backgroundEffects = new BackgroundEffects(this.ctx, FIELD_W, this.height);
+    this.mouseInput = new MouseInput(canvas);
+    this.particles.setDensity(this.settings.particleDensity);
+    this.sidebarLogo = new Image();
+    this.sidebarLogo.onload = () => { this.sidebarLogoReady = true; };
+    this.sidebarLogo.src = '/apeironx-logo.png';
   // load hi-score if present
   try{ const hi = localStorage.getItem('apeiron_hi'); if (hi) this.highScore = Math.max(0, parseInt(hi,10)||0); }catch{}
   this.resetGame(true);
@@ -97,14 +156,39 @@ export class Engine{
       const c = Math.floor(this.rand() * GRID.COLS);
       const r = Math.floor(this.rand() * (GRID.ROWS - GRID.PLAYER_ROWS));
       if (!this.grid.get(c, r)) {
-        this.grid.set(c, r, new Mushroom(c, r));
+        const mush = new Mushroom(c, r);
+
+        // Reflective mushrooms appear in high waves (reflects bullets back)
+        if (this.level >= REFLECTED_BULLET.START_WAVE) {
+          const reflectChance = Math.min(
+            REFLECTED_BULLET.MAX_CHANCE,
+            (this.level - REFLECTED_BULLET.START_WAVE) * REFLECTED_BULLET.CHANCE_PER_WAVE
+          );
+          if (this.rand() < reflectChance) {
+            mush.reflective = true;
+          }
+        }
+
+        // Psychedelic mushrooms (rainbow - triggers point multiplier)
+        if (this.level >= PSYCHEDELIC.START_WAVE && !mush.reflective) {
+          if (this.rand() < PSYCHEDELIC.SPAWN_CHANCE) {
+            mush.psychedelic = true;
+          }
+        }
+
+        this.grid.set(c, r, mush);
         placed++;
       }
     }
   }
 
   start(){ this.running = true; this.last = performance.now(); this.loop(this.last); }
-  destroy(){ this.running=false; cancelAnimationFrame(this.raf); this.unbindInput(); }
+  destroy(){
+    this.running = false;
+    cancelAnimationFrame(this.raf);
+    this.unbindInput();
+    this.mouseInput.unbindEvents();
+  }
 
   private loop(now: number) {
     if (!this.running) return;
@@ -141,29 +225,133 @@ export class Engine{
     
     // Update scoring mechanics
     this.updateScoring(dt);
+    if (usesModernScoring(this.settings.gameMode) && this.touchdownFriendCd > 0) {
+      this.touchdownFriendCd = Math.max(0, this.touchdownFriendCd - dt);
+    }
     
     // Update particle system
     this.particles.update(dt);
     
-    // update entities
-    this.player.update(dt, this.keys);
-    
-    // Player movement trail
-    if (this.player.alive && (this.keys.has('ArrowLeft') || this.keys.has('ArrowRight') || 
-        this.keys.has('ArrowUp') || this.keys.has('ArrowDown'))) {
-      this.particles.playerTrail(this.player.x + this.player.w/2, this.player.y + this.player.h);
+    // update entities (mouse-first, keyboard fallback)
+    const mouseState = this.mouseInput.getInput(
+      this.player.x + this.player.w / 2,
+      this.player.y + this.player.h / 2
+    );
+    const keyboardShooting = this.keys.has('Space');
+    const keyboardMoving = this.keys.has('ArrowLeft') || this.keys.has('ArrowRight') || this.keys.has('ArrowUp') || this.keys.has('ArrowDown');
+    const useMouse = mouseState.shooting || mouseState.vx !== 0 || mouseState.vy !== 0;
+    if (useMouse) {
+      this.player.update(dt, {
+        vx: mouseState.vx,
+        vy: mouseState.vy,
+        shooting: mouseState.shooting || keyboardShooting
+      });
+    } else {
+      this.player.update(dt, this.keys);
     }
     
-    for (const c of this.centipedes) c.tick(dt, this.grid);
+    // Player movement trail
+    if (this.player.alive && (keyboardMoving || useMouse)) {
+      this.particles.playerTrail(this.player.x + this.player.w/2, this.player.y + this.player.h);
+    }
+
+    // Classic rule: player cannot move through mushrooms without Diamond yummy.
+    if (!this.player.canPassThroughMushrooms()) {
+      const pr = this.player.rect();
+      const minC = Math.max(0, Math.floor(pr.x / CELL));
+      const maxC = Math.min(COLS - 1, Math.floor((pr.x + pr.w) / CELL));
+      const minR = Math.max(0, Math.floor(pr.y / CELL));
+      const maxR = Math.min(ROWS - 1, Math.floor((pr.y + pr.h) / CELL));
+      let blocked = false;
+      for (let r = minR; r <= maxR && !blocked; r++) {
+        for (let c = minC; c <= maxC; c++) {
+          if (this.grid.get(c, r)) {
+            blocked = true;
+            break;
+          }
+        }
+      }
+      if (blocked) {
+        this.player.revertPosition();
+      }
+    }
+
+    // Falling mushrooms (with gravity for juggling)
+    for (const fm of this.fallingMushrooms) {
+      if (!fm.active) continue;
+      fm.vy += 400 * dt; // Gravity pulls it down
+      fm.y += fm.vy * dt;
+      if (fm.y > this.height + fm.h || fm.y < -fm.h * 2) {
+        fm.active = false;
+      }
+      if (this.player.alive && aabb(this.player.rect(), fm)) {
+        fm.active = false;
+        this.loseLife();
+        return;
+      }
+    }
+
+    // REFLECTED BULLETS - deadly projectiles bounced back from reflective mushrooms
+    for (const rb of this.reflectedBullets) {
+      if (!rb.active) continue;
+      rb.y += rb.vy * dt;
+      if (rb.y > this.height + 10) {
+        rb.active = false;
+      }
+      // Check collision with player
+      if (this.player.alive) {
+        const pr = this.player.rect();
+        const rbRect = { x: rb.x - 2, y: rb.y - 4, w: 4, h: 8 };
+        if (aabb(pr, rbRect)) {
+          rb.active = false;
+          this.loseLife();
+          return;
+        }
+      }
+    }
+    this.reflectedBullets = this.reflectedBullets.filter(rb => rb.active);
+
+    // PSYCHEDELIC effect timer
+    if (this.psychedelicTimer > 0) {
+      this.psychedelicTimer -= dt;
+      if (this.psychedelicTimer <= 0) {
+        this.psychedelicMultiplier = 1;
+        this.addPopup(this.width / 2, this.height / 2, 'PSYCHEDELIC OVER');
+      }
+    }
+
+    // COINS update
+    for (const coin of this.coins) {
+      if (!coin.active) continue;
+      coin.y += coin.vy * dt;
+      if (coin.y > this.height + 10) {
+        coin.active = false;
+      }
+      // Check collection by player
+      if (this.player.alive) {
+        const pr = this.player.rect();
+        const coinRect = { x: coin.x - 6, y: coin.y - 6, w: 12, h: 12 };
+        if (aabb(pr, coinRect)) {
+          coin.active = false;
+          this.addScore(SCORE.COIN);
+          this.coinsCollected++;
+          this.particles.emitImpact(coin.x, coin.y, '#ffd700', 4);
+          sfx.coin();
+        }
+      }
+    }
+    this.coins = this.coins.filter(c => c.active);
+    
+    let touchdowns = 0;
+    for (const c of this.centipedes) {
+      c.tick(dt, this.grid);
+      if (c.consumeTouchdown()) touchdowns++;
+    }
+    if (touchdowns > 0) this.handleTouchdowns(touchdowns);
     
     // Update spiders with player position for chase behavior
     for (const s of this.spiders) {
       s.update(dt, this.player.y);
-      // Chance to drop power-up when killed
-      if (s.dead && this.rand() < POWERUPS.SPAWN_CHANCE) {
-        this.spawnPowerUp(s.x + s.w/2, s.y + s.h/2);
-        this.particles.enemyExplosion(s.x + s.w/2, s.y + s.h/2);
-      }
     }
     
     // Update fleas and handle mushroom dropping
@@ -177,85 +365,92 @@ export class Engine{
           this.grid.set(c,r,new Mushroom(c,r));
         }
       }
-      // Chance to drop power-up when killed
-      if (f.dead && this.rand() < POWERUPS.SPAWN_CHANCE) {
-        this.spawnPowerUp(f.x + f.w/2, f.y + f.h/2);
-        this.particles.enemyExplosion(f.x + f.w/2, f.y + f.h/2);
-      }
     }
     
     // Update scorpions
     for (const sc of this.scorpions) {
       sc.update(dt);
-      // Chance to drop power-up when killed
-      if (sc.dead && this.rand() < POWERUPS.SPAWN_CHANCE) {
-        this.spawnPowerUp(sc.x + sc.w/2, sc.y + sc.h/2);
-        this.particles.enemyExplosion(sc.x + sc.w/2, sc.y + sc.h/2);
-      }
     }
     
     // Update Yummies (power-ups)
     for (const p of this.powerUps) {
+      const wasActive = p.active;
       p.update(dt);
-      
-      // Yummy sparkle effect
-      if (p.active && this.rand() < 0.1) {
+
+      // RASPBERRY SOUND: Power-up fell off screen without being collected!
+      if (wasActive && !p.active) {
+        sfx.raspberry();
+        this.addPopup(FIELD_W / 2, this.height - 40, 'MISSED YUMMY!');
+      }
+
+      // Keep classic visuals subdued; enhanced mode gets stronger sparkle.
+      const sparkleChance = this.isClassicMode() ? 0.015 : 0.06;
+      if (p.active && this.rand() < sparkleChance) {
         this.particles.powerUpSparkle(
-          p.x + p.w/2 + (Math.random() - 0.5) * p.w,
-          p.y + p.h/2 + (Math.random() - 0.5) * p.h,
+          p.x + p.w/2 + (this.rand() - 0.5) * p.w,
+          p.y + p.h/2 + (this.rand() - 0.5) * p.h,
           p.type
         );
-        
-        // Add floating effect
-        p.y += Math.sin(this.tGlobal * YUMMIES.VISUALS.FLOAT_SPEED * Math.PI * 2) * 
-               YUMMIES.VISUALS.FLOAT_AMPLITUDE * dt;
       }
-      
+
       // Check for collection
       if (p.active && aabb(this.player.rect(), p.rect())) {
         p.active = false;
-        this.player.addPowerUp(p.type);
+        let popupText = `YUMMY! ${p.type.toUpperCase()}`;
+        if (p.type === 'extra_man') {
+          if (this.lives < 8) {
+            this.lives++;
+          }
+          popupText = 'YUMMY! EXTRA MAN';
+          sfx.extra();
+        } else if (p.type === 'house_cleaning') {
+          const startRow = GRID.ROWS - GRID.PLAYER_ROWS;
+          for (let r = startRow; r < GRID.ROWS; r++) {
+            for (let c = 0; c < GRID.COLS; c++) {
+              this.grid.set(c, r, null);
+            }
+          }
+          popupText = 'YUMMY! HOUSE CLEANING';
+          sfx.extra();
+        } else {
+          this.player.addPowerUp(p.type);
+        }
         
         // Show collection popup
         this.addPopup(
           p.x + p.w/2,
           p.y + p.h/2,
-          `YUMMY! ${p.type.toUpperCase()}`
+          popupText
         );
         
-        // Collection effects
-        for (let i = 0; i < 12; i++) {
-          const angle = (i / 12) * Math.PI * 2;
-          const radius = GRID.CELL * 0.8;
+        const sparkleBursts = this.isClassicMode() ? 4 : 12;
+        for (let i = 0; i < sparkleBursts; i++) {
+          const angle = (i / sparkleBursts) * Math.PI * 2;
+          const radius = GRID.CELL * 0.75;
           const sparkleX = p.x + p.w/2 + Math.cos(angle) * radius;
           const sparkleY = p.y + p.h/2 + Math.sin(angle) * radius;
           this.particles.powerUpSparkle(sparkleX, sparkleY, p.type);
         }
         
-        // Add energy field effect
-        this.backgroundEffects.addEnergyField(
-          p.x + p.w/2,
-          p.y + p.h/2,
-          2.0
-        );
+        if (!this.isClassicMode()) {
+          this.backgroundEffects.addEnergyField(p.x + p.w/2, p.y + p.h/2, 1.1);
+        }
         
         // Play collection sound
         sfx.powerup();
       }
     }
     
-  // coins fall slowly (for readability) if any
-  for (const coin of this.coins){ if (!coin.active) continue; coin.y += 30*dt; if (coin.y>this.height) coin.active=false; }
-
     // Enemy spawn logic
+    const modeTuning = getLevelTuning(this.level, this.settings.gameMode);
     
     // Larry the Scobster (Spider)
     this.spiderTimer -= dt;
     if (this.spiderTimer <= 0) {
       this.spiders.push(new Spider(this.level, this.rand));
       this.spiderTimer = randRange(
-        ENEMIES.LARRY_THE_SCOBSTER.SPAWN_MIN_TIME,
-        ENEMIES.LARRY_THE_SCOBSTER.SPAWN_MAX_TIME,
+        modeTuning.spiderMin,
+        modeTuning.spiderMax,
         this.rand
       );
     }
@@ -268,7 +463,9 @@ export class Engine{
       if (mushes < ENEMIES.GROUCHO_THE_FLICK.PLAYER_ROWS_MIN_MUSHES) {
         this.fleas.push(new Flea(this.rand));
       }
-      this.fleaCd = ENEMIES.GROUCHO_THE_FLICK.SPAWN_COOLDOWN;
+      this.fleaCd = this.settings.gameMode === 'classic'
+        ? ENEMIES.GROUCHO_THE_FLICK.SPAWN_COOLDOWN
+        : Math.max(1.1, ENEMIES.GROUCHO_THE_FLICK.SPAWN_COOLDOWN * 0.82);
     }
     
     // Gordon the Gecko (Scorpion)
@@ -276,8 +473,8 @@ export class Engine{
     if (this.scorpionTimer <= 0) {
       this.scorpions.push(new Scorpion(this.rand));
       this.scorpionTimer = randRange(
-        ENEMIES.GORDON_THE_GECKO.SPAWN_MIN_TIME,
-        ENEMIES.GORDON_THE_GECKO.SPAWN_MAX_TIME,
+        modeTuning.scorpionMin,
+        modeTuning.scorpionMax,
         this.rand
       );
     }
@@ -311,11 +508,10 @@ export class Engine{
             const x = c * GRID.CELL + GRID.CELL/2;
             const y = r * GRID.CELL + GRID.CELL/2;
             
-            // Explosion effect
-            this.particles.emitExplosion(x, y, mush.poisoned ? '#ff4fc8' : '#64b5f6');
-            
-            // Energy field effect
-            this.backgroundEffects.addEnergyField(x, y, 1.0);
+            this.particles.emitExplosion(x, y, mush.poisoned ? '#ff6e49' : '#7ea5d3', this.isClassicMode() ? 4 : 12);
+            if (!this.isClassicMode()) {
+              this.backgroundEffects.addEnergyField(x, y, 0.9);
+            }
           }
         }
       }
@@ -326,18 +522,6 @@ export class Engine{
       }
     }
 
-    // Groucho the Flick drops mushrooms as it falls
-    for (const f of this.fleas) {
-      const c = Math.floor(f.x / GRID.CELL);
-      const r = Math.floor(f.y / GRID.CELL);
-      if (inBounds(c, r) && 
-          this.rand() < ENEMIES.GROUCHO_THE_FLICK.MUSHROOM_DROP_CHANCE && 
-          !this.grid.get(c, r) && 
-          r < GRID.ROWS - GRID.PLAYER_ROWS) {
-        this.grid.set(c, r, new Mushroom(c, r));
-      }
-    }
-
     // Gordon the Gecko poisons mushrooms it touches
     for (const sc of this.scorpions) {
       const c = Math.floor(sc.x / GRID.CELL);
@@ -345,20 +529,17 @@ export class Engine{
       const m = this.grid.get(c, r);
       if (m) {
         m.poisoned = true;
-        // Add poison effect particles
-        this.particles.emitPoison(
-          c * GRID.CELL + GRID.CELL/2,
-          r * GRID.CELL + GRID.CELL/2
-        );
+        if (!this.isClassicMode()) {
+          this.particles.emitPoison(
+            c * GRID.CELL + GRID.CELL/2,
+            r * GRID.CELL + GRID.CELL/2
+          );
+        }
       }
     }
 
     // bullets collisions
     this.handleBullets();
-
-  // coin collection by player
-  const pr = this.player.rect();
-  for (const coin of this.coins){ if (!coin.active) continue; if (aabb(pr, coin)){ coin.active=false; this.player.autofireTime = POWERUPS.AUTOFIRE_DURATION; sfx.extra(); } }
 
     // Player collisions with enemies
     if (this.player.alive) {
@@ -404,15 +585,22 @@ export class Engine{
       }
       
       // UFO
-      // TODO: Add UFO collision handling
+      for (const ufo of this.ufos) {
+        if (!ufo.dead && aabb(pr, ufo.rect())) {
+          this.loseLife();
+          return;
+        }
+      }
     }
 
   // cleanup
-    this.spiders = this.spiders.filter(s => !s.dead);
-    this.fleas = this.fleas.filter(s => !s.dead);
-    this.scorpions = this.scorpions.filter(s => !s.dead);
-    this.ufos = this.ufos.filter(u => !u.dead);
-  this.coins = this.coins.filter(c=>c.active);
+  this.spiders = this.spiders.filter(s => !s.dead);
+  this.fleas = this.fleas.filter(s => !s.dead);
+  this.scorpions = this.scorpions.filter(s => !s.dead);
+  this.ufos = this.ufos.filter(u => !u.dead);
+  if (this.fleas.length <= 1) this.fleaMultiplier = 1;
+  this.powerUps = this.powerUps.filter(p => p.active);
+  this.fallingMushrooms = this.fallingMushrooms.filter(fm => fm.active);
   // update popups and shake timer
   if (this.shakeT>0) this.shakeT -= dt;
   for (const p of this.popups){ p.t -= dt; p.y -= 22*dt; }
@@ -444,8 +632,9 @@ export class Engine{
     const blastRect = b.rect();
     let hitCount = 0;
     
-    // Add energy field effect for mega blast
-    this.backgroundEffects.addEnergyField(b.x, b.y, 2);
+    if (!this.isClassicMode()) {
+      this.backgroundEffects.addEnergyField(b.x, b.y, 1.2);
+    }
     
     // Mushrooms in blast radius
     for (let r = 0; r < ROWS; r++) {
@@ -459,8 +648,12 @@ export class Engine{
           if (mush.hp <= 0) {
             this.grid.set(c, r, null);
             this.addScore(SCORE.MUSHROOM_CLEAR_BONUS);
-            this.particles.emitExplosion(c*CELL + CELL/2, r*CELL + CELL/2, 
-              mush.poisoned ? POWERUP_COLORS.shield : '#64b5f6');
+            this.particles.emitExplosion(
+              c*CELL + CELL/2,
+              r*CELL + CELL/2,
+              mush.poisoned ? '#ff6d4c' : '#7ea5d3',
+              this.isClassicMode() ? 5 : 10
+            );
           }
           hitCount++;
         }
@@ -483,8 +676,8 @@ export class Engine{
           this.addPopup(s.c*CELL + CELL/2, s.r*CELL + CELL/2, String(pts));
           
           // Explosion effect
-          const color = killedHead ? POWERUP_COLORS.rapid : POWERUP_COLORS.spread;
-          this.particles.emitExplosion(s.c*CELL + CELL/2, s.r*CELL + CELL/2, color);
+          const color = killedHead ? '#ff744a' : '#6e8dbf';
+          this.particles.emitExplosion(s.c*CELL + CELL/2, s.r*CELL + CELL/2, color, this.isClassicMode() ? 5 : 11);
           
           // Split centipede
           const left = cent.segments.slice(0, si);
@@ -511,6 +704,7 @@ export class Engine{
         this.addScore(pts);
         this.addPopup(sp.x+sp.w/2, sp.y+sp.h/2, String(pts));
         this.particles.enemyExplosion(sp.x + sp.w/2, sp.y + sp.h/2);
+        this.maybeDropPowerUp(sp.x + sp.w/2, sp.y + sp.h/2);
         hitCount++;
       }
     }
@@ -521,6 +715,7 @@ export class Engine{
         this.addScore(SCORE.FLEA);
         this.addPopup(f.x+f.w/2, f.y+f.h/2, String(SCORE.FLEA));
         this.particles.enemyExplosion(f.x + f.w/2, f.y + f.h/2);
+        this.maybeDropPowerUp(f.x + f.w/2, f.y + f.h/2);
         hitCount++;
       }
     }
@@ -531,6 +726,7 @@ export class Engine{
         this.addScore(SCORE.SCORPION);
         this.addPopup(sc.x+sc.w/2, sc.y+sc.h/2, String(SCORE.SCORPION));
         this.particles.enemyExplosion(sc.x + sc.w/2, sc.y + sc.h/2);
+        this.maybeDropPowerUp(sc.x + sc.w/2, sc.y + sc.h/2);
         hitCount++;
       }
     }
@@ -538,21 +734,18 @@ export class Engine{
     if (hitCount > 0) {
       sfx.extra(); // Mega blast hit sound
       b.active = false;
-      // Create large explosion effect
-      for (let i = 0; i < 12; i++) {
-        const angle = (i / 12) * Math.PI * 2;
+      const burstCount = this.isClassicMode() ? 6 : 12;
+      for (let i = 0; i < burstCount; i++) {
+        const angle = (i / burstCount) * Math.PI * 2;
         const radius = WEAPONS.MEGA_BLAST.BLAST_RADIUS * 0.8;
         const x = b.x + Math.cos(angle) * radius;
         const y = b.y + Math.sin(angle) * radius;
-        this.particles.emitExplosion(x, y, POWERUP_COLORS.mega);
+        this.particles.emitExplosion(x, y, '#ff8a42', this.isClassicMode() ? 4 : 12);
       }
     }
   }
   
   private handleRegularBullet(b: Bullet): boolean {
-    // Add small energy field effect for bullet impact
-    this.backgroundEffects.addEnergyField(b.x, b.y, 0.5);
-    
       // mushrooms
       const mc = Math.floor(b.x / CELL), mr = Math.floor(b.y / CELL);
       const mush = this.grid.get(mc, mr);
@@ -560,23 +753,119 @@ export class Engine{
         const rect = { x:mush.x+2, y:mush.y+2, w:CELL-4, h:CELL-4 };
         if (aabb(b.rect(), rect)){
         b.active = false;
+
+        // REFLECTIVE MUSHROOMS: Bounce bullet back at player!
+        if (mush.reflective) {
+          this.reflectedBullets.push({
+            x: b.x,
+            y: b.y,
+            vy: Math.abs(b.vy) * REFLECTED_BULLET.SPEED_MULTIPLIER,
+            active: true
+          });
+          sfx.reflect();
+          this.particles.emitImpact(b.x, b.y, '#c0c0c0', 4);
+          this.particles.emitImpact(b.x, b.y, '#ffffff', 2);
+          return true;
+        }
+
+        // PSYCHEDELIC MUSHROOMS: Trigger rainbow effect and point multiplier!
+        if (mush.psychedelic) {
+          this.psychedelicTimer = TIMERS.PSYCHEDELIC_DURATION;
+          this.psychedelicMultiplier = PSYCHEDELIC.POINT_MULTIPLIER;
+          this.addScore(SCORE.PSYCHEDELIC_MUSHROOM);
+          this.addPopup(mush.x + CELL/2, mush.y + CELL/2, `PSYCHEDELIC! ${PSYCHEDELIC.POINT_MULTIPLIER}x POINTS!`);
+          sfx.extra();
+          // Rainbow explosion
+          const colors = ['#ff0000', '#ff7700', '#ffff00', '#00ff00', '#0077ff', '#7700ff', '#ff00ff'];
+          for (let i = 0; i < 14; i++) {
+            this.particles.emitExplosion(
+              mush.x + CELL/2,
+              mush.y + CELL/2,
+              colors[i % colors.length],
+              3
+            );
+          }
+          this.grid.set(mc, mr, null);
+          return true;
+        }
+
         mush.hp -= b.damage;
-        this.addScore(SCORE.MUSHROOM_HIT);
+        this.addScore(mush.poisoned ? SCORE.POISON_MUSHROOM_HIT : SCORE.MUSHROOM_HIT);
         sfx.hit();
-        // Impact effect
-        this.particles.bulletImpact(b.x, b.y);
+        if (this.isClassicMode()) {
+          this.particles.emitImpact(b.x, b.y, '#cfd7e4', 2);
+        } else {
+          this.particles.bulletImpact(b.x, b.y);
+        }
         if (mush.hp <= 0){
           this.grid.set(mc, mr, null);
           this.addScore(SCORE.MUSHROOM_CLEAR_BONUS);
+          const fallChance = getFallingMushroomChance(this.level, this.settings.gameMode);
+          if (this.rand() < fallChance) {
+            this.fallingMushrooms.push({
+              x: mush.x + 1,
+              y: mush.y + 1,
+              w: CELL - 2,
+              h: CELL - 2,
+              vy: 150 + this.level * 8,
+              poisoned: mush.poisoned,
+              active: true,
+              juggleCount: 0
+            });
+          }
           // Crystal shatter effect
-          for (let i = 0; i < 8; i++) {
+          const burst = this.isClassicMode() ? 3 : 8;
+          for (let i = 0; i < burst; i++) {
             this.particles.emitImpact(
               mush.x + CELL/2,
               mush.y + CELL/2,
-              mush.poisoned ? POWERUP_COLORS.shield : '#64b5f6'
+              mush.poisoned ? '#ff6d4c' : '#7ea5d3'
             );
           }
         }
+        return true;
+      }
+    }
+
+    // Falling mushroom JUGGLING system - hit it multiple times for bonus points!
+    for (const fm of this.fallingMushrooms) {
+      if (!fm.active) continue;
+      if (aabb(b.rect(), fm)) {
+        b.active = false;
+        fm.juggleCount++;
+
+        // Calculate score with juggle multiplier
+        const baseScore = fm.poisoned ? SCORE.FALLING_POISON_MUSHROOM : SCORE.FALLING_MUSHROOM;
+        const juggleMultiplier = Math.pow(SCORE.JUGGLE_MULTIPLIER, fm.juggleCount - 1);
+        const pts = Math.floor(baseScore * juggleMultiplier);
+        this.addScore(pts);
+
+        // Pop the mushroom back up (juggle effect)
+        fm.vy = -Math.abs(fm.vy) * 0.7; // Bounce up with some dampening
+
+        // Show juggle combo
+        const juggleText = fm.juggleCount > 1 ? `JUGGLE x${fm.juggleCount}! ${pts}` : String(pts);
+        this.addPopup(fm.x + fm.w/2, fm.y + fm.h/2, juggleText);
+
+        // Visual feedback - more particles with higher juggle count
+        const burstSize = Math.min(this.isClassicMode() ? 8 : 16, 4 + fm.juggleCount * 2);
+        this.particles.emitExplosion(
+          fm.x + fm.w/2,
+          fm.y + fm.h/2,
+          fm.poisoned ? '#ff6d4c' : '#7ea5d3',
+          burstSize
+        );
+
+        // Play juggle sound with increasing pitch
+        sfx.juggle(fm.juggleCount);
+
+        // Destroy mushroom after many juggles or if it goes too high
+        if (fm.juggleCount >= 5) {
+          fm.active = false;
+          this.addPopup(fm.x + fm.w/2, fm.y + fm.h/2, 'PERFECT JUGGLE!');
+          sfx.extra();
+        }
+
         return true;
       }
     }
@@ -597,8 +886,8 @@ export class Engine{
           sfx.hit();
           
           // Explosion effect
-          const color = killedHead ? POWERUP_COLORS.rapid : POWERUP_COLORS.spread;
-          this.particles.emitExplosion(s.c*CELL + CELL/2, s.r*CELL + CELL/2, color);
+          const color = killedHead ? '#ff744a' : '#6e8dbf';
+          this.particles.emitExplosion(s.c*CELL + CELL/2, s.r*CELL + CELL/2, color, this.isClassicMode() ? 5 : 12);
           
           const left = cent.segments.slice(0, si);
           const right = cent.segments.slice(si+1);
@@ -619,8 +908,8 @@ export class Engine{
         this.addScore(pts);
         this.addPopup(sp.x+sp.w/2, sp.y+sp.h/2, String(pts));
         sfx.spider();
-        // Spider explosion effect
-        this.particles.enemyExplosion(sp.x + sp.w/2, sp.y + sp.h/2);
+        this.particles.emitExplosion(sp.x + sp.w/2, sp.y + sp.h/2, '#88bf63', this.isClassicMode() ? 6 : 12);
+        this.maybeDropPowerUp(sp.x + sp.w/2, sp.y + sp.h/2);
         return true;
       }
     }
@@ -630,11 +919,18 @@ export class Engine{
       if (!f.dead && aabb(b.rect(), f.rect())){
         f.dead = true;
         b.active = false;
-        this.addScore(SCORE.FLEA);
-        this.addPopup(f.x+f.w/2, f.y+f.h/2, String(SCORE.FLEA));
+        const concurrentFleas = this.fleas.filter(ff => !ff.dead).length;
+        const pts = SCORE.FLEA * this.fleaMultiplier;
+        if (concurrentFleas > 1) {
+          this.fleaMultiplier = Math.min(32, this.fleaMultiplier * 2);
+        } else {
+          this.fleaMultiplier = 1;
+        }
+        this.addScore(pts);
+        this.addPopup(f.x+f.w/2, f.y+f.h/2, String(pts));
         sfx.flea();
-        // Flea explosion effect
-        this.particles.enemyExplosion(f.x + f.w/2, f.y + f.h/2);
+        this.particles.emitExplosion(f.x + f.w/2, f.y + f.h/2, '#8aa4cc', this.isClassicMode() ? 4 : 10);
+        this.maybeDropPowerUp(f.x + f.w/2, f.y + f.h/2);
         return true;
       }
     }
@@ -647,8 +943,23 @@ export class Engine{
         this.addScore(SCORE.SCORPION);
         this.addPopup(sc.x+sc.w/2, sc.y+sc.h/2, String(SCORE.SCORPION));
         sfx.scorpion();
-        // Scorpion explosion effect
-        this.particles.enemyExplosion(sc.x + sc.w/2, sc.y + sc.h/2);
+        this.particles.emitExplosion(sc.x + sc.w/2, sc.y + sc.h/2, '#cc705a', this.isClassicMode() ? 6 : 12);
+        this.maybeDropPowerUp(sc.x + sc.w/2, sc.y + sc.h/2);
+        return true;
+      }
+    }
+
+    // spaceship / UFO
+    for (const ufo of this.ufos) {
+      if (!ufo.dead && aabb(b.rect(), ufo.rect())) {
+        ufo.dead = true;
+        b.active = false;
+        const steps = (SCORE.SPACESHIP_MAX - SCORE.SPACESHIP_MIN) / 100;
+        const pts = SCORE.SPACESHIP_MIN + Math.floor(this.rand() * (steps + 1)) * 100;
+        this.addScore(pts);
+        this.addPopup(ufo.x + ufo.w/2, ufo.y + ufo.h/2, String(pts));
+        sfx.ufo();
+        this.particles.emitExplosion(ufo.x + ufo.w/2, ufo.y + ufo.h/2, '#aac7ab', this.isClassicMode() ? 8 : 14);
         return true;
       }
     }
@@ -665,6 +976,33 @@ export class Engine{
     return ENEMIES.LARRY_THE_SCOBSTER.SCORE_FAR;
   }
 
+  private handleTouchdowns(count: number) {
+    const modeTuning = getLevelTuning(this.level, this.settings.gameMode);
+    const touchdownRules = getTouchdownRules(this.settings.gameMode);
+    if (usesModernScoring(this.settings.gameMode)) {
+      this.addPopup(this.width / 2, (GRID.ROWS - GRID.PLAYER_ROWS) * GRID.CELL - 8, 'TOUCHDOWN');
+    }
+    for (let i = 0; i < count; i++) {
+      const totalSegments = this.centipedes.reduce((n, c) => n + c.segments.length, 0);
+      if (totalSegments < touchdownRules.segmentCap) {
+        const len = Math.max(4, Math.min(modeTuning.centipedeLength, 14));
+        this.centipedes.push(new Centipede(len, this.level));
+      }
+
+      if (!usesModernScoring(this.settings.gameMode)) continue;
+      if (this.touchdownFriendCd > 0) continue;
+      const roll = this.rand();
+      if (roll < 0.45 && this.spiders.length < 2) {
+        this.spiders.push(new Spider(this.level, this.rand));
+      } else if (roll < 0.8 && this.fleas.length < 3) {
+        this.fleas.push(new Flea(this.rand));
+      } else if (this.scorpions.length < 2) {
+        this.scorpions.push(new Scorpion(this.rand));
+      }
+      this.touchdownFriendCd = touchdownRules.friendCooldown;
+    }
+  }
+
   private loseLife(){
     // Don't lose life if shield is active or phase shifting
     if (this.player.isShieldActive() || this.player.phaseShiftActive) {
@@ -677,17 +1015,17 @@ export class Engine{
   this.shakeT = 0.35;
     this.hitsTaken++;
     
-    // Reset combo and chain on death
-    this.combo = 1;
-    this.comboTimer = 0;
-    this.chainHits = 0;
-    this.chainTimer = 0;
+    const savedPowerUps = this.player.hasPowerUp('lock') ? this.player.getPowerUpSnapshot() : [];
     
-    if (this.lives < 0) {
+    if (this.lives <= 0) {
       this.mode = 'gameover';
       sfx.gameover();
+      this.notifyStateChange();
     } else {
       this.player = new Player();
+      if (savedPowerUps.length) {
+        this.player.restorePowerUps(savedPowerUps);
+      }
     }
   }
   
@@ -698,6 +1036,10 @@ export class Engine{
     return `${r},${g},${b}`;
   }
 
+  private isClassicMode(): boolean {
+    return this.settings.gameMode === 'classic';
+  }
+
   private addPopup(x:number, y:number, text:string){
     this.popups.push({x, y, text, t:0.7});
     if (this.popups.length>12) this.popups.shift();
@@ -705,40 +1047,41 @@ export class Engine{
 
   private addScore(basePoints: number, type: 'normal' | 'chain' | 'bonus' = 'normal') {
     let finalPoints = basePoints;
-    
-    // Apply level multiplier
-    const levelBonus = 1 + (this.level - 1) * SCORE.LEVEL_MULTIPLIER;
-    finalPoints *= levelBonus;
-    
-    if (type === 'normal') {
-      // Apply combo multiplier
-      finalPoints *= this.combo;
-      
-      // Update combo
-      this.comboTimer = SCORING.COMBO_WINDOW;
-      this.combo = Math.min(this.combo + 0.5, SCORING.MAX_COMBO);
-      
-      // Update chain
-      this.chainHits++;
-      this.chainTimer = SCORING.CHAIN_TIMEOUT;
-      
-      // Check for chain level up
-      for (const [multiplier, required] of Object.entries(SCORING.CHAIN_REQUIREMENTS)) {
-        if (this.chainHits === required) {
-          const bonus = basePoints * (+multiplier - 1);
-          this.addScore(bonus, 'chain');
-          this.addPopup(
-            this.player.x + this.player.w/2,
-            this.player.y,
-            `CHAIN x${multiplier}!`
-          );
-          break;
+
+    // PSYCHEDELIC MULTIPLIER - rainbow mushroom effect!
+    if (this.psychedelicMultiplier > 1) {
+      finalPoints *= this.psychedelicMultiplier;
+    }
+
+    if (usesModernScoring(this.settings.gameMode)) {
+      finalPoints *= 1 + (this.level - 1) * SCORE.LEVEL_MULTIPLIER;
+
+      if (type === 'normal') {
+        finalPoints *= this.combo;
+        this.comboTimer = SCORING.COMBO_WINDOW;
+        this.combo = Math.min(this.combo + 0.5, SCORING.MAX_COMBO);
+        this.chainHits++;
+        this.chainTimer = SCORING.CHAIN_TIMEOUT;
+
+        for (const [multiplier, required] of Object.entries(SCORING.CHAIN_REQUIREMENTS)) {
+          if (this.chainHits === required) {
+            const bonus = basePoints * (+multiplier - 1);
+            this.addScore(bonus, 'chain');
+            this.addPopup(
+              this.player.x + this.player.w / 2,
+              this.player.y,
+              `CHAIN x${multiplier}!`
+            );
+            break;
+          }
         }
       }
     }
-    
-    // Round the final score
+
     finalPoints = Math.round(finalPoints);
+    if (type !== 'normal') {
+      this.sidebarBonus = Math.min(99999, this.sidebarBonus + finalPoints);
+    }
     
     // Update score and check for extra life
     this.score += finalPoints;
@@ -748,28 +1091,26 @@ export class Engine{
         localStorage.setItem('apeiron_hi', String(this.highScore));
       } catch {}
     }
-    if (this.score >= this.nextExtraLife) {
-      this.lives++;
+    while (this.score >= this.nextExtraLife) {
+      if (this.lives < 8) {
+        this.lives++;
+        sfx.extra();
+      }
       this.nextExtraLife += EXTRA_LIFE_STEP;
-      sfx.extra();
     }
     
     return finalPoints;
   }
   
   private updateScoring(dt: number) {
-    // Update combo timer
+    if (!usesModernScoring(this.settings.gameMode)) return;
+
     if (this.comboTimer > 0) {
       this.comboTimer -= dt;
-      if (this.comboTimer <= 0) {
-        // Start combo decay
-        if (this.combo > 1) {
-          this.combo = Math.max(1, this.combo - SCORING.COMBO_DECAY_RATE * dt);
-        }
-      }
+    } else if (this.combo > 1) {
+      this.combo = Math.max(1, this.combo - SCORING.COMBO_DECAY_RATE * dt);
     }
-    
-    // Update chain timer
+
     if (this.chainTimer > 0) {
       this.chainTimer -= dt;
       if (this.chainTimer <= 0) {
@@ -779,45 +1120,41 @@ export class Engine{
   }
   
   private awardLevelBonuses() {
+    if (!usesModernScoring(this.settings.gameMode)) return;
+
     let bonusText = '';
     let totalBonus = SCORE.LEVEL_COMPLETION;
-    
-    // Perfect mushroom field bonus
-    if (this.mushroomsLost === 0) {
-      totalBonus += SCORE.PERFECT_CLEAR;
-      bonusText += 'PERFECT FIELD! ';
-    }
-    
-    // Speed clear bonus
-    const levelTime = (performance.now() - this.levelStartTime) / 1000;
-    const parTime = this.getParTime();
-    if (levelTime < parTime) {
-      totalBonus += SCORE.SPEED_CLEAR;
-      bonusText += 'SPEED CLEAR! ';
-    }
-    
-    // No-hit bonus
-    if (this.hitsTaken === 0) {
-      totalBonus += SCORE.NO_HIT;
-      bonusText += 'FLAWLESS! ';
-    }
-    
-    // Remaining mushrooms bonus
+
     let remainingMushrooms = 0;
     for (let r = 0; r < GRID.ROWS; r++) {
       for (let c = 0; c < GRID.COLS; c++) {
-        if (this.grid.get(c, r)) {
-          remainingMushrooms++;
-        }
+        if (this.grid.get(c, r)) remainingMushrooms++;
       }
     }
+    this.mushroomsLost = Math.max(0, this.initialMushrooms - remainingMushrooms);
+
+    if (this.mushroomsLost === 0) {
+      totalBonus += SCORE.PERFECT_CLEAR;
+      bonusText += 'PERFECT FIELD ';
+    }
+
+    const levelTime = (performance.now() - this.levelStartTime) / 1000;
+    if (levelTime < this.getParTime()) {
+      totalBonus += SCORE.SPEED_CLEAR;
+      bonusText += 'SPEED CLEAR ';
+    }
+
+    if (this.hitsTaken === 0) {
+      totalBonus += SCORE.NO_HIT;
+      bonusText += 'FLAWLESS ';
+    }
+
     totalBonus += remainingMushrooms * SCORE.MUSHROOM_FIELD_BONUS;
-    
-    // Award bonus
+
     if (totalBonus > 0) {
       this.addScore(totalBonus, 'bonus');
       if (bonusText) {
-        this.addPopup(this.width/2, this.height/2, bonusText);
+        this.addPopup(this.width / 2, this.height / 2, bonusText.trim());
       }
     }
   }
@@ -830,6 +1167,12 @@ export class Engine{
   }
 
   private startLevel(){
+    const tuning = getLevelTuning(this.level, this.settings.gameMode);
+    this.sidebarBonus = 0;
+
+    // Update background theme based on wave (changes every 4 waves like original)
+    this.backgroundEffects.setWave(this.level);
+
     // Reset level-specific scoring
     this.combo = 1;
     this.comboTimer = 0;
@@ -839,8 +1182,7 @@ export class Engine{
     this.hitsTaken = 0;
     
     // Setup mushroom field
-    const mushDensity = 0.10 + Math.min(0.12, (this.level-1)*0.02);
-    this.seedMushrooms(mushDensity);
+    this.seedMushrooms(tuning.mushroomDensity);
     
     // Count initial mushrooms for perfect field bonus
     this.initialMushrooms = 0;
@@ -852,21 +1194,27 @@ export class Engine{
     }
     
     // Setup enemies
-    const len = Math.min(16, 10 + Math.floor(this.level*2));
+    const len = tuning.centipedeLength;
     this.centipedes = [ new Centipede(len, this.level) ];
     this.spiders.length = 0;
     this.fleas.length = 0;
     this.scorpions.length = 0;
+    this.ufos.length = 0;
+    this.fallingMushrooms.length = 0;
+    this.reflectedBullets.length = 0;
     this.coins.length = 0;
+    this.touchdownFriendCd = 0;
     
-    // Tighten spawn windows with level
-    const l = this.level;
-    const spiderMin = Math.max(1.5, TIMERS.SPAWN_SPIDER_MIN - l*0.2);
-    const spiderMax = Math.max(3.0, TIMERS.SPAWN_SPIDER_MAX - l*0.3);
-    this.spiderTimer = randRange(spiderMin, spiderMax, this.rand);
-    const scMin = Math.max(3.0, TIMERS.SPAWN_SCORPION_MIN - l*0.25);
-    const scMax = Math.max(6.0, TIMERS.SPAWN_SCORPION_MAX - l*0.4);
-    this.scorpionTimer = randRange(scMin, scMax, this.rand);
+    this.spiderTimer = randRange(tuning.spiderMin, tuning.spiderMax, this.rand);
+    this.scorpionTimer = randRange(tuning.scorpionMin, tuning.scorpionMax, this.rand);
+    this.fleaCd = this.settings.gameMode === 'classic'
+      ? TIMERS.SPAWN_FLEA_COOLDOWN
+      : Math.max(1.1, TIMERS.SPAWN_FLEA_COOLDOWN * 0.82);
+    this.ufoTimer = randRange(
+      ENEMIES.UFO.SPAWN_MIN_TIME,
+      ENEMIES.UFO.SPAWN_MAX_TIME,
+      this.rand
+    );
   }
 
   private spawnPowerUp(x: number, y: number) {
@@ -886,17 +1234,80 @@ export class Engine{
       this.rand
     ));
     
-    // Add energy field effect for Yummy spawn
-    this.backgroundEffects.addEnergyField(x, y, 1.5);
+    if (!this.isClassicMode()) {
+      this.backgroundEffects.addEnergyField(x, y, 1.0);
+    }
     
-    // Add sparkle effect
-    for (let i = 0; i < 8; i++) {
+    const sparkleCount = this.isClassicMode() ? 3 : 8;
+    for (let i = 0; i < sparkleCount; i++) {
       this.particles.powerUpSparkle(
-        x + (Math.random() - 0.5) * GRID.CELL,
-        y + (Math.random() - 0.5) * GRID.CELL,
+        x + (this.rand() - 0.5) * GRID.CELL,
+        y + (this.rand() - 0.5) * GRID.CELL,
         type
       );
     }
+  }
+
+  private maybeDropPowerUp(x: number, y: number) {
+    if (this.rand() < POWERUPS.SPAWN_CHANCE) {
+      this.spawnPowerUp(x, y);
+    }
+    // Also try to drop coins
+    this.maybeDropCoin(x, y);
+  }
+
+  // COIN SYSTEM - coins drop from enemies and can trigger frenzy
+  private maybeDropCoin(x: number, y: number) {
+    if (this.coins.length >= COINS.MAX_ACTIVE) return;
+
+    if (this.rand() < COINS.DROP_CHANCE) {
+      this.spawnCoin(x, y);
+
+      // Check for coin frenzy trigger
+      if (this.rand() < COINS.FRENZY_CHANCE && !this.coinFrenzyActive) {
+        this.triggerCoinFrenzy();
+      }
+    }
+  }
+
+  private spawnCoin(x: number, y: number) {
+    if (this.coins.length >= COINS.MAX_ACTIVE) return;
+    this.coins.push({
+      x: x + (this.rand() - 0.5) * GRID.CELL,
+      y,
+      vy: COINS.FALL_SPEED,
+      active: true,
+      value: SCORE.COIN
+    });
+  }
+
+  // COIN FRENZY - fill the bottom third of screen with coins!
+  private triggerCoinFrenzy() {
+    this.coinFrenzyActive = true;
+    this.coinsCollected = 0;
+    this.addPopup(this.width / 2, this.height / 3, 'COIN FRENZY!');
+    sfx.coinFrenzy();
+
+    // Spawn many coins across the top
+    const fieldW = COLS * CELL;
+    for (let i = 0; i < COINS.FRENZY_COUNT && this.coins.length < COINS.MAX_ACTIVE; i++) {
+      this.coins.push({
+        x: this.rand() * fieldW,
+        y: -this.rand() * 100 - 10,
+        vy: COINS.FALL_SPEED * (0.8 + this.rand() * 0.4),
+        active: true,
+        value: SCORE.COIN
+      });
+    }
+
+    // End frenzy after duration
+    setTimeout(() => {
+      this.coinFrenzyActive = false;
+      if (this.coinsCollected > 10) {
+        this.addScore(SCORE.COIN_FRENZY_BONUS, 'bonus');
+        this.addPopup(this.width / 2, this.height / 2, `FRENZY BONUS! ${this.coinsCollected} COINS!`);
+      }
+    }, TIMERS.COIN_FRENZY_DURATION * 1000);
   }
 
   private resetGame(keepHi=false){
@@ -904,31 +1315,46 @@ export class Engine{
     this.rand = makeRng(0xC0FFEE);
     if (!keepHi){ try{ const hi = localStorage.getItem('apeiron_hi'); if (hi) this.highScore = Math.max(this.highScore, parseInt(hi,10)||0); }catch{} }
     this.score = 0; this.lives = 3; this.level = 1; this.nextExtraLife = EXTRA_LIFE_STEP;
+    this.sidebarBonus = 0;
     this.grid = new Grid(COLS, ROWS);
     this.player = new Player();
     this.centipedes = [];
     this.spiders = [];
     this.fleas = [];
     this.scorpions = [];
+    this.ufos = [];
     this.powerUps = [];
+    this.fallingMushrooms = [];
+    this.reflectedBullets = [];
     this.coins = [];
+    this.psychedelicTimer = 0;
+    this.psychedelicMultiplier = 1;
+    this.coinFrenzyActive = false;
+    this.coinsCollected = 0;
     this.spiderTimer=randRange(TIMERS.SPAWN_SPIDER_MIN,TIMERS.SPAWN_SPIDER_MAX, this.rand);
     this.fleaCd=TIMERS.SPAWN_FLEA_COOLDOWN;
     this.scorpionTimer=randRange(TIMERS.SPAWN_SCORPION_MIN,TIMERS.SPAWN_SCORPION_MAX, this.rand);
-    this.coinTimer=randRange(TIMERS.COIN_SPAWN_MIN,TIMERS.COIN_SPAWN_MAX, this.rand);
     this.startLevel();
   }
 
-  private backgroundEffects = new BackgroundEffects(this.ctx, this.width, this.height);
-
   private draw() {
     const g = this.ctx;
-    g.imageSmoothingEnabled = false;
-    
+    const fieldW = FIELD_W;
+    const panelX = fieldW;
+    const panelW = Math.max(0, this.width - fieldW);
+    const profile = this.getVisualProfile();
+    g.imageSmoothingEnabled = true;
+    g.imageSmoothingQuality = 'high';
+
+    // Backdrop for the whole canvas (panel + field).
+    g.fillStyle = '#101010';
+    g.fillRect(0, 0, this.width, this.height);
+
     // Update and draw background effects
+    this.backgroundEffects.setProfile(profile);
     this.backgroundEffects.update(1/60);
     this.backgroundEffects.draw();
-    
+
     // Deterministic screen shake (sin/cos phase) without RNG
     let sx = 0, sy = 0;
     if (this.shakeT > 0 && this.settings.screenShake) {
@@ -936,44 +1362,31 @@ export class Engine{
       sx = Math.sin(this.tGlobal * 80) * m;
       sy = Math.cos(this.tGlobal * 60) * m;
     }
+
     g.save();
     g.translate(sx, sy);
-    
-    // Draw bezel/frame
-    if (VISUAL.FRAME) {
-      // Outer frame
-      g.strokeStyle = '#333';
-      g.lineWidth = 4;
-      g.strokeRect(2, 2, this.width - 4, this.height - 4);
-      
-      // Inner frame
-      g.strokeStyle = '#111';
-      g.lineWidth = 2;
-      g.strokeRect(6, 6, this.width - 12, this.height - 12);
-      
-      // Frame glow
-      g.save();
-      g.globalCompositeOperation = 'lighter';
-      g.strokeStyle = 'rgba(100,100,255,0.1)';
-      g.lineWidth = 8;
-      g.strokeRect(4, 4, this.width - 8, this.height - 8);
-      g.restore();
-    }
 
-    // Background particles (energy trails, etc.)
-    this.particles.draw(g);
+    // Gameplay area is clipped to the left field. Sidebar is right panel.
+    g.save();
+    g.beginPath();
+    g.rect(0, 0, fieldW, this.height);
+    g.clip();
 
     // mushrooms
     for (let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
       const m = this.grid.get(c,r); if(!m) continue; const x=c*CELL, y=r*CELL;
-      drawMushroom(g, x, y, m.poisoned, m.hp);
+      drawMushroom(g, x, y, m.poisoned, m.hp, profile, m.reflective, m.psychedelic, this.tGlobal);
+    }
+    for (const fm of this.fallingMushrooms) {
+      if (!fm.active) continue;
+      drawMushroom(g, fm.x, fm.y, fm.poisoned, 1, profile, false, false, this.tGlobal);
     }
 
     // centipede
     for (const cent of this.centipedes){
       for (let i=0;i<cent.segments.length;i++){
         const s = cent.segments[i]; const x = s.c*CELL, y=s.r*CELL;
-        drawSegment(g, x, y, s.head);
+        drawSegment(g, x, y, s.head, profile);
       }
     }
 
@@ -981,6 +1394,7 @@ export class Engine{
     for (const sp of this.spiders){ drawSpider(g, sp.x, sp.y, sp.w, sp.h); }
     for (const f of this.fleas){ drawFlea(g, f.x, f.y, f.w, f.h); }
     for (const sc of this.scorpions){ drawScorpion(g, sc.x, sc.y, sc.w, sc.h); }
+    for (const ufo of this.ufos){ if (!ufo.dead) drawUFO(g, ufo.x, ufo.y, ufo.w, ufo.h); }
     
     // power-ups
     g.font = '10px ui-monospace, Menlo, monospace';
@@ -989,127 +1403,65 @@ export class Engine{
       if (p.active) p.draw(g);
     }
     g.textAlign = 'start';
-    
-  // coins
-  for (const c of this.coins){ if(!c.active) continue; g.fillStyle = '#ffd54a'; g.fillRect(c.x, c.y, c.w, c.h); g.fillStyle='#000'; g.fillRect(c.x+5, c.y+3, 2, 6); }
 
-  // player & bullets
+    // player & bullets
     const p = this.player;
     
     // Draw shield effect if active
     if (p.isShieldActive()) {
-      g.fillStyle = `rgba(${hexToRgb(POWERUP_COLORS.shield)},0.3)`;
+      g.fillStyle = `rgba(${this.hexToRgb(POWERUP_COLORS.shield)},0.22)`;
       g.fillRect(p.x - 2, p.y - 2, p.w + 4, p.h + 4);
     }
     
-    drawPlayer(g, p.x, p.y, p.w, p.h);
-  if (p.flashT>0){ drawMuzzleFlash(g, p.x, p.y, p.w, Math.min(1, p.flashT/0.05)); }
-    for (const b of p.bullets){ if(b.active) drawBullet(g, b.x, b.y); }
+    drawPlayer(g, p.x, p.y, p.w, p.h, profile);
+    if (p.flashT>0){ drawMuzzleFlash(g, p.x, p.y, p.w, Math.min(1, p.flashT/0.05), profile); }
+    for (const b of p.bullets){ if(b.active) drawBullet(g, b.x, b.y, profile); }
 
-    // Foreground particles (explosions, impacts, etc.)
-    g.save();
-    g.globalCompositeOperation = 'lighter';
+    // REFLECTED BULLETS - dangerous red bullets coming at player
+    for (const rb of this.reflectedBullets) {
+      if (!rb.active) continue;
+      g.fillStyle = '#ff3030';
+      g.beginPath();
+      g.roundRect(rb.x - 2, rb.y - 5, 4, 10, 2);
+      g.fill();
+      g.fillStyle = '#ffaaaa';
+      g.beginPath();
+      g.ellipse(rb.x, rb.y - 3, 1.5, 1, 0, 0, Math.PI * 2);
+      g.fill();
+    }
+
+    // COINS - golden collectibles
+    for (const coin of this.coins) {
+      if (!coin.active) continue;
+      const pulse = 0.8 + Math.sin(this.tGlobal * 8 + coin.x) * 0.2;
+      // Gold coin with shine
+      g.fillStyle = '#ffd700';
+      g.beginPath();
+      g.arc(coin.x, coin.y, 5 * pulse, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = '#b8860b';
+      g.lineWidth = 1;
+      g.stroke();
+      // Shine highlight
+      g.fillStyle = '#fff8dc';
+      g.beginPath();
+      g.arc(coin.x - 1.5, coin.y - 1.5, 1.5, 0, Math.PI * 2);
+      g.fill();
+    }
+
     this.particles.draw(g);
-    g.restore();
-
-    // Draw scanlines
-    if (VISUAL.SCANLINES) {
-      g.save();
-      g.globalCompositeOperation = 'multiply';
-      g.fillStyle = 'rgba(0,0,0,0.07)';
-      for (let y = 0; y < this.height; y += 2) {
-        g.fillRect(0, y, this.width, 1);
-      }
-      g.restore();
-    }
-
-    // Draw HUD bar
-    g.fillStyle = 'rgba(0,0,0,0.85)';
-    g.fillRect(0, 0, this.width, 22);
-    
-    g.fillStyle = '#ffffff';
-    g.strokeStyle = '#000';
-    g.font = '12px ui-monospace, Menlo, monospace';
-    
-    // Score
-    g.fillText(
-      'SCORE ' + this.score.toString().padStart(6, '0'),
-      8,
-      15
-    );
-    
-    // High score
-    const hiText = 'HI ' + this.highScore.toString().padStart(6, '0');
-    const wHi = g.measureText(hiText).width;
-    g.fillText(hiText, this.width/2 - wHi/2, 15);
-    
-    // Lives
-  g.fillText('LIVES', 140, 15);
-    const iconY = 6;
-    let ix = 185;
-    for (let i = 0; i < Math.max(0, this.lives); i++) {
-      // Crystal shooter icon
-      g.fillStyle = '#5be3ff';
-      g.fillRect(ix, iconY + 6, 10, 6);
-      g.fillStyle = '#b8f4ff';
-      g.fillRect(ix + 4, iconY, 2, 6);
-      
-      // Icon glow
-      g.save();
-      g.globalCompositeOperation = 'lighter';
-      g.fillStyle = 'rgba(91,227,255,0.3)';
-      g.fillRect(ix - 2, iconY + 4, 14, 10);
-      g.restore();
-      
-      ix += 16;
-    }
-    
-    // Level
-    g.fillText('LEVEL ' + this.level, 260, 15);
-    
-    // Yummy indicator
-    if (this.player.autofireTime > 0) {
-      const progress = this.player.autofireTime / YUMMIES.DURATIONS.MACHINE_GUN;
-      
-      // Background bar
-      g.fillStyle = 'rgba(255,213,74,0.3)';
-      g.fillRect(400, 7, 40, 8);
-      
-      // Progress bar
-      g.fillStyle = '#ffd54a';
-      g.fillRect(400, 7, 40 * progress, 8);
-      
-      // Glow effect
-      g.save();
-      g.globalCompositeOperation = 'lighter';
-      g.fillStyle = 'rgba(255,213,74,0.2)';
-      g.fillRect(398, 5, 44 * progress, 12);
-      g.restore();
-    }
 
     // Player zone line
     if (VISUAL.PLAYER_ZONE_LINE) {
       const yLine = (GRID.ROWS - GRID.PLAYER_ROWS) * GRID.CELL + 0.5;
-      
-      // Base line
-      g.strokeStyle = '#222';
+      g.strokeStyle = 'rgba(255,255,255,0.15)';
       g.lineWidth = 1;
       g.beginPath();
       g.moveTo(0, yLine);
-      g.lineTo(this.width, yLine);
+      g.lineTo(fieldW, yLine);
       g.stroke();
-      
-      // Glow effect
-      g.save();
-      g.globalCompositeOperation = 'lighter';
-      g.strokeStyle = 'rgba(100,100,255,0.1)';
-      g.lineWidth = 3;
-      g.beginPath();
-      g.moveTo(0, yLine);
-      g.lineTo(this.width, yLine);
-      g.stroke();
-      g.restore();
     }
+
     // Floating score popups
     if (this.popups.length) {
       g.font = '12px ui-monospace, Menlo, monospace';
@@ -1117,20 +1469,9 @@ export class Engine{
       
       for (const p of this.popups) {
         const a = Math.max(0, Math.min(1, p.t/0.7));
-        
-        // Glow effect
-        g.save();
-        g.globalCompositeOperation = 'lighter';
-        g.fillStyle = `rgba(255,255,255,${a * 0.3})`;
-        g.fillText(p.text, p.x, p.y);
-        g.fillText(p.text, p.x, p.y);
-        g.restore();
-        
-        // Main text
-        g.fillStyle = `rgba(255,255,255,${a})`;
-        g.strokeStyle = `rgba(0,0,0,${a})`;
-        g.lineWidth = 2;
-        g.strokeText(p.text, p.x, p.y);
+        g.fillStyle = this.isClassicMode()
+          ? `rgba(118,208,232,${a})`
+          : `rgba(235,255,255,${a})`;
         g.fillText(p.text, p.x, p.y);
       }
       
@@ -1140,21 +1481,52 @@ export class Engine{
     // Level clear flash overlay
     if (this.levelClearT > 0) {
       const a = Math.min(0.9, Math.max(0, this.levelClearT / 0.6));
-      
+
       // White flash
       g.fillStyle = `rgba(255,255,255,${a})`;
       g.fillRect(0, 0, this.width, this.height);
-      
-      // Energy ripple effect
-      const rippleRadius = (1 - this.levelClearT/0.6) * Math.max(this.width, this.height);
+    }
+
+    // PSYCHEDELIC EFFECT - rainbow screen flash!
+    if (this.psychedelicTimer > 0) {
+      const phase = this.tGlobal * 4;
+      const intensity = Math.min(0.35, this.psychedelicTimer / TIMERS.PSYCHEDELIC_DURATION * 0.5);
+
+      // Rainbow gradient overlay
+      const rainbowGrad = g.createLinearGradient(0, 0, fieldW, this.height);
+      rainbowGrad.addColorStop(0, `rgba(255,0,0,${intensity})`);
+      rainbowGrad.addColorStop(0.17, `rgba(255,127,0,${intensity})`);
+      rainbowGrad.addColorStop(0.33, `rgba(255,255,0,${intensity})`);
+      rainbowGrad.addColorStop(0.5, `rgba(0,255,0,${intensity})`);
+      rainbowGrad.addColorStop(0.67, `rgba(0,127,255,${intensity})`);
+      rainbowGrad.addColorStop(0.83, `rgba(127,0,255,${intensity})`);
+      rainbowGrad.addColorStop(1, `rgba(255,0,127,${intensity})`);
+
       g.save();
-      g.globalCompositeOperation = 'lighter';
-      g.strokeStyle = `rgba(255,255,255,${a * 0.5})`;
-      g.lineWidth = 2;
-      g.beginPath();
-      g.arc(this.width/2, this.height/2, rippleRadius, 0, Math.PI * 2);
-      g.stroke();
+      g.globalCompositeOperation = 'overlay';
+      g.fillStyle = rainbowGrad;
+      g.fillRect(0, 0, fieldW, this.height);
+
+      // Pulsing radial effect
+      const pulseRad = g.createRadialGradient(
+        fieldW/2 + Math.sin(phase) * 50,
+        this.height/2 + Math.cos(phase) * 50,
+        0,
+        fieldW/2, this.height/2, fieldW
+      );
+      pulseRad.addColorStop(0, `rgba(255,255,255,${intensity * 0.5})`);
+      pulseRad.addColorStop(0.5, `rgba(255,200,255,${intensity * 0.3})`);
+      pulseRad.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = pulseRad;
+      g.fillRect(0, 0, fieldW, this.height);
       g.restore();
+
+      // Show multiplier text
+      g.font = 'bold 16px ui-monospace, Menlo, monospace';
+      g.textAlign = 'center';
+      g.fillStyle = `rgba(255,255,255,${0.6 + Math.sin(this.tGlobal * 10) * 0.4})`;
+      g.fillText(`${PSYCHEDELIC.POINT_MULTIPLIER}x POINTS!`, fieldW / 2, 30);
+      g.textAlign = 'start';
     }
     
     // Debug overlays
@@ -1167,7 +1539,7 @@ export class Engine{
         const fps = Math.round(1000 / (performance.now() - this.last));
         g.fillStyle = '#fff';
         g.font = '12px ui-monospace, Menlo, monospace';
-        g.fillText(`FPS: ${fps}`, this.width - 60, 15);
+        g.fillText(`FPS: ${fps}`, fieldW - 60, 15);
       }
       
       // Hitboxes
@@ -1235,11 +1607,280 @@ export class Engine{
           }
         }
       }
-      
       g.restore();
     }
-    
+
     g.restore();
+    this.drawSidebar(g, panelX, panelW);
+    g.restore();
+  }
+
+  private drawSidebar(g: CanvasRenderingContext2D, x: number, w: number) {
+    if (w <= 0) return;
+    const profile = this.getVisualProfile();
+    const classicProfile = profile === 'classic';
+
+    if (!this.sidebarTexture || this.sidebarTextureWidth !== w) {
+      this.sidebarTexture = this.buildSidebarTexture(w, this.height);
+      this.sidebarTextureWidth = w;
+    }
+    g.drawImage(this.sidebarTexture, x, 0);
+
+    g.fillStyle = '#1f2629';
+    g.fillRect(x, 0, 2, this.height);
+    g.fillStyle = '#6d6e6f';
+    g.fillRect(x + 2, 0, 1, this.height);
+
+    g.save();
+    g.translate(x, 0);
+
+    if (this.sidebarLogoReady && this.sidebarLogo && !classicProfile) {
+      const logoPad = 6;
+      const logoTop = 3;
+      const logoBoxW = w - logoPad * 2;
+      const logoBoxH = 78;
+      const iw = this.sidebarLogo.naturalWidth || 1;
+      const ih = this.sidebarLogo.naturalHeight || 1;
+      const scale = Math.min(logoBoxW / iw, logoBoxH / ih);
+      const drawW = Math.floor(iw * scale);
+      const drawH = Math.floor(ih * scale);
+      const drawX = Math.floor((w - drawW) * 0.5);
+      const drawY = logoTop + Math.floor((logoBoxH - drawH) * 0.5);
+      g.drawImage(this.sidebarLogo, drawX, drawY, drawW, drawH);
+    } else {
+      g.strokeStyle = classicProfile ? '#be8730' : '#ad7e32';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.ellipse(w * 0.5, 36, w * 0.42, 25, -0.12, 0, Math.PI * 2);
+      g.stroke();
+      g.font = 'italic 700 44px Georgia, serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'top';
+      const logoGrad = g.createLinearGradient(w * 0.18, 10, w * 0.82, 58);
+      if (classicProfile) {
+        logoGrad.addColorStop(0, '#70441a');
+        logoGrad.addColorStop(0.38, '#e6bf55');
+        logoGrad.addColorStop(1, '#c77818');
+      } else {
+        logoGrad.addColorStop(0, '#6f4a1c');
+        logoGrad.addColorStop(0.38, '#f3c15f');
+        logoGrad.addColorStop(1, '#d8841e');
+      }
+      g.fillStyle = logoGrad;
+      g.strokeStyle = 'rgba(21, 12, 6, 0.95)';
+      g.lineWidth = 2;
+      g.strokeText('Apeiron', w * 0.47, 8);
+      g.fillText('Apeiron', w * 0.47, 8);
+      if (!classicProfile) {
+        g.font = 'italic 700 58px Georgia, serif';
+        g.fillStyle = '#d77a1c';
+        g.strokeText('X', w * 0.83, 4);
+        g.fillText('X', w * 0.83, 4);
+      }
+    }
+    g.textAlign = 'center';
+    g.textBaseline = 'top';
+
+    const drawDataBox = (top: number, label: string, value: string, valueFont = 46) => {
+      g.fillStyle = classicProfile ? '#db2e26' : '#d3a43c';
+      g.font = '700 18px "Times New Roman", Georgia, serif';
+      g.fillText(label, w * 0.5, top);
+
+      const boxX = 14;
+      const boxY = top + 28;
+      const boxW = w - 28;
+      const boxH = 36;
+      g.fillStyle = '#08090d';
+      g.fillRect(boxX, boxY, boxW, boxH);
+      g.strokeStyle = '#6a7073';
+      g.lineWidth = 2;
+      g.strokeRect(boxX, boxY, boxW, boxH);
+      g.fillStyle = 'rgba(255,255,255,0.07)';
+      g.fillRect(boxX + 1, boxY + 1, boxW - 2, 6);
+
+      const fitFont = Math.max(28, Math.min(valueFont, Math.floor((boxW - 12) / Math.max(1, value.length) * 1.68)));
+      g.font = `700 ${fitFont}px "Times New Roman", Georgia, serif`;
+      g.strokeStyle = '#051923';
+      g.lineWidth = 2.2;
+      g.strokeText(value, w * 0.5, top + 20);
+      g.fillStyle = '#5fd2ef';
+      g.fillText(value, w * 0.5, top + 20);
+      g.fillStyle = 'rgba(186, 243, 252, 0.33)';
+      g.fillText(value, w * 0.5 + 1, top + 19);
+    };
+
+    const scoreText = String(this.score);
+    const bonusText = String(this.sidebarBonus);
+    drawDataBox(94, 'Score', scoreText, 46);
+    drawDataBox(212, 'Bonus', bonusText, 46);
+
+    g.fillStyle = classicProfile ? '#db2e26' : '#d3a43c';
+    g.font = '700 18px "Times New Roman", Georgia, serif';
+    g.fillText('Lives', w * 0.5, 326);
+    g.fillStyle = '#08090d';
+    g.fillRect(14, 352, w - 28, 32);
+    g.strokeStyle = '#6a7073';
+    g.lineWidth = 2;
+    g.strokeRect(14, 350, w - 28, 34);
+
+    let lx = 52;
+    for (let i = 0; i < Math.max(0, this.lives); i++) {
+      g.fillStyle = '#111d2d';
+      g.beginPath();
+      g.moveTo(lx, 368);
+      g.lineTo(lx + 5.5, 360);
+      g.lineTo(lx + 11, 368);
+      g.lineTo(lx + 5.5, 372.5);
+      g.closePath();
+      g.fill();
+      g.fillStyle = classicProfile ? '#f4df74' : '#82e1f5';
+      g.beginPath();
+      g.ellipse(lx + 5.5, 365.4, 1.8, 1.45, 0, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = '#5d7088';
+      g.strokeRect(lx + 1.2, 362.9, 8.6, 7.6);
+      lx += 18;
+      if (lx > w - 24) break;
+    }
+
+    // Active power-up strip.
+    g.fillStyle = '#090a0e';
+    g.fillRect(44, 420, w - 88, 22);
+    g.strokeStyle = '#5a5e63';
+    g.strokeRect(44, 418, w - 88, 24);
+    const hasLock = this.player.hasPowerUp('lock');
+    const hasDiamond = this.player.hasPowerUp('diamond');
+    const hasGun = this.player.hasPowerUp('machine_gun');
+    const iconY = 431;
+    g.font = '700 18px Georgia, serif';
+    g.fillStyle = hasGun ? '#c54630' : 'rgba(197, 70, 48, 0.35)';
+    g.fillText('2', 62, iconY - 10);
+    if (hasDiamond) {
+      g.fillStyle = '#45d6ff';
+    } else {
+      g.fillStyle = 'rgba(69, 214, 255, 0.35)';
+    }
+    g.beginPath();
+    g.moveTo(72, iconY);
+    g.lineTo(78, iconY - 6);
+    g.lineTo(84, iconY);
+    g.lineTo(78, iconY + 6);
+    g.closePath();
+    g.fill();
+    if (hasGun) {
+      g.fillStyle = '#e55d2f';
+    } else {
+      g.fillStyle = 'rgba(229, 93, 47, 0.35)';
+    }
+    g.fillRect(98, iconY - 7, 3, 14);
+    g.fillRect(104, iconY - 7, 3, 14);
+    g.fillRect(110, iconY - 7, 3, 14);
+    if (hasLock) {
+      g.strokeStyle = '#c8d5e0';
+      g.lineWidth = 1.5;
+    } else {
+      g.strokeStyle = 'rgba(200, 213, 224, 0.4)';
+      g.lineWidth = 1.2;
+    }
+    g.strokeRect(130, iconY - 3, 10, 8);
+    g.beginPath();
+    g.arc(135, iconY - 3, 4, Math.PI, Math.PI * 2);
+    g.stroke();
+
+    g.fillStyle = classicProfile ? '#db2e26' : '#d3a43c';
+    g.font = '700 18px "Times New Roman", Georgia, serif';
+    g.fillText('Wave', w * 0.5, 454);
+    g.fillStyle = '#08090d';
+    g.fillRect(40, 480, w - 80, 54);
+    g.strokeStyle = '#6a7073';
+    g.strokeRect(40, 478, w - 80, 54);
+    g.font = '700 54px "Times New Roman", Georgia, serif';
+    const waveText = String(this.level);
+    g.strokeStyle = '#061c28';
+    g.lineWidth = 2.4;
+    g.strokeText(waveText, w * 0.5, 472);
+    g.fillStyle = '#67d6ea';
+    g.fillText(waveText, w * 0.5, 472);
+    g.fillStyle = 'rgba(161, 238, 248, 0.35)';
+    g.fillText(waveText, w * 0.5 + 1, 471);
+
+    if (this.player.autofireTime > 0) {
+      const progress = this.player.autofireTime / YUMMIES.DURATIONS.MACHINE_GUN;
+      g.fillStyle = '#090a0e';
+      g.fillRect(44, 446, w - 88, 7);
+      g.fillStyle = '#b8842e';
+      g.fillRect(45, 447, (w - 90) * progress, 5);
+      g.fillStyle = '#f1ce7a';
+      g.fillRect(45, 447, (w - 90) * progress * 0.35, 5);
+    }
+
+    g.restore();
+  }
+
+  private buildSidebarTexture(w: number, h: number): HTMLCanvasElement {
+    const tile = document.createElement('canvas');
+    tile.width = w;
+    tile.height = h;
+    const t = tile.getContext('2d');
+    if (!t) return tile;
+
+    const grad = t.createLinearGradient(0, 0, w, h);
+    grad.addColorStop(0, '#0a0a0b');
+    grad.addColorStop(0.3, '#1a1b1d');
+    grad.addColorStop(0.74, '#131416');
+    grad.addColorStop(1, '#09090a');
+    t.fillStyle = grad;
+    t.fillRect(0, 0, w, h);
+
+    const img = t.createImageData(w, h);
+    const data = img.data;
+    for (let yy = 0; yy < h; yy++) {
+      for (let xx = 0; xx < w; xx++) {
+        const i = (yy * w + xx) * 4;
+        const grain = Math.sin((xx * 127.1 + yy * 311.7) * 0.11) * 0.5 + 0.5;
+        const poresA = Math.sin((xx * 71.3 + yy * 91.9) * 0.27) * 0.5 + 0.5;
+        const poresB = Math.sin((xx * 43.7 - yy * 57.3) * 0.2) * 0.5 + 0.5;
+        const brushed = Math.sin((xx * 0.08 + yy * 0.36) + poresA * 4.2) * 0.5 + 0.5;
+        const c = Math.max(0, Math.min(255, 9 + grain * 14 + poresA * 9 + poresB * 8 + brushed * 7));
+        data[i] = c;
+        data[i + 1] = c;
+        data[i + 2] = c + 1;
+        data[i + 3] = 255;
+      }
+    }
+    t.putImageData(img, 0, 0);
+
+    t.fillStyle = 'rgba(255,255,255,0.055)';
+    for (let i = 0; i < 1900; i++) {
+      const rx = Math.sin(i * 12.47) * 0.5 + 0.5;
+      const ry = Math.sin(i * 7.11 + 3.2) * 0.5 + 0.5;
+      const rw = 1 + ((Math.sin(i * 3.9) * 0.5 + 0.5) > 0.75 ? 1 : 0);
+      t.fillRect(Math.floor(rx * w), Math.floor(ry * h), rw, 1);
+    }
+
+    const ridge = t.createLinearGradient(0, 0, w, 0);
+    ridge.addColorStop(0, 'rgba(255,255,255,0.06)');
+    ridge.addColorStop(0.45, 'rgba(255,255,255,0.01)');
+    ridge.addColorStop(1, 'rgba(0,0,0,0.06)');
+    t.fillStyle = ridge;
+    t.fillRect(0, 0, w, h);
+
+    const shine = t.createLinearGradient(0, 0, w, h * 0.75);
+    shine.addColorStop(0, 'rgba(255,255,255,0.026)');
+    shine.addColorStop(0.35, 'rgba(255,255,255,0.014)');
+    shine.addColorStop(1, 'rgba(255,255,255,0)');
+    t.fillStyle = shine;
+    t.fillRect(0, 0, w, h);
+
+    t.fillStyle = 'rgba(0, 0, 0, 0.18)';
+    t.fillRect(0, 0, w, 2);
+    t.fillRect(0, h - 2, w, 2);
+
+    return tile;
+  }
+
+  private getVisualProfile(): VisualProfile {
+    return this.settings.gameMode === 'classic' ? 'classic' : 'x';
   }
 
   pause() {
@@ -1247,6 +1888,13 @@ export class Engine{
       this.mode = 'pause';
       this.notifyStateChange();
     }
+  }
+
+  startNewGame() {
+    this.mode = 'playing';
+    this.resetGame();
+    sfx.start();
+    this.notifyStateChange();
   }
   
   resume() {
@@ -1256,7 +1904,7 @@ export class Engine{
     }
   }
   
-  updateSettings(newSettings: typeof this.settings) {
+  updateSettings(newSettings: EngineSettings) {
     this.settings = { ...newSettings };
     
     // Apply volume settings
@@ -1264,6 +1912,13 @@ export class Engine{
     
     // Update particle density
     this.particles.setDensity(this.settings.particleDensity);
+
+    if (!usesModernScoring(this.settings.gameMode)) {
+      this.combo = 1;
+      this.comboTimer = 0;
+      this.chainHits = 0;
+      this.chainTimer = 0;
+    }
   }
   
   private notifyStateChange() {
@@ -1280,20 +1935,23 @@ export class Engine{
       this.keys.add(e.code);
   if(["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Space"].includes(e.code)) e.preventDefault();
       
-      if (e.code === 'Escape' && this.mode === 'playing') {
-        this.pause();
+      if (e.code === 'KeyP') {
+        if (this.mode === 'playing') this.pause();
+        else if (this.mode === 'pause') this.resume();
+      }
+      else if (e.code === 'CapsLock') {
+        if (this.mode === 'playing') this.pause();
+        else if (this.mode === 'pause') this.resume();
+      }
+      else if (e.code === 'Escape' && (this.mode === 'playing' || this.mode === 'pause')) {
+        this.mode = 'title';
+        this.notifyStateChange();
       }
       else if (this.mode === 'title' && e.code === 'Space') {
-        this.mode = 'playing';
-        this.resetGame();
-        sfx.start();
-        this.notifyStateChange();
+        this.startNewGame();
       }
       else if (this.mode === 'gameover' && e.code === 'Space') {
-        this.mode = 'playing';
-        this.resetGame();
-        sfx.start();
-        this.notifyStateChange();
+        this.startNewGame();
       }
     };
     

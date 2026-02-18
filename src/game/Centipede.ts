@@ -8,6 +8,7 @@ export class Centipede {
   private acc = 0; // cells to advance
   private speed: number;
   private poisonDive = false;
+  private touchedDown = false;
   
   constructor(len: number, level: number) {
     const startRow = 0;
@@ -29,6 +30,12 @@ export class Centipede {
       this.step(grid); 
       this.acc -= 1; 
     }
+  }
+
+  consumeTouchdown(): boolean {
+    if (!this.touchedDown) return false;
+    this.touchedDown = false;
+    return true;
   }
 
   private step(grid: Grid) {
@@ -65,9 +72,11 @@ export class Centipede {
       this.segments[i].r = prev[i-1].r; 
     }
 
-    // Wrap around to top when reaching bottom of play area
+    // Classic behavior: touchdown at bottom row, then restart from top.
     if (head.r >= maxRow) { 
+      this.touchedDown = true;
       head.r = 0; 
+      this.poisonDive = false;
     }
   }
 }
