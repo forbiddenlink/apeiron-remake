@@ -12,11 +12,11 @@
     "test:run": "vitest run"
   },
   "dependencies": {
-    "react": "^18.3.1",
+    "react": "^19.2.4",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "@types/react": "^18.3.3",
+    "@types/react": "^19.2.14",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^5.0.0",
     "@vitest/ui": "^2.0.5",
