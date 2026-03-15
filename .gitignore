@@ -2,3 +2,16 @@
 node_modules/
 dist/
 artifacts/
+
+# Environment
+.env
+.env.local
+.env.*.local
+.env*.local
+# Build output
+.next/
+build/
+out/
+# OS
+.DS_Store
+Thumbs.db
