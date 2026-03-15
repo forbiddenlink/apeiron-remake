@@ -14,16 +14,23 @@ Open the printed local URL (<http://localhost:5173>). If you see another site, c
 
 ## What’s included
 
-- Deterministic fixed-timestep engine (Centipede/Apeiron mechanics)
+- Deterministic fixed-timestep engine tuned for classic Apeiron mechanics
 - Procedural pixel art (no image files)
 - WebAudio synthesized SFX (no audio files)
-- Lives, extra lives @ 12k, spider/flea/scorpion, poisoned mushrooms, dive, HUD, level flow.
+- Mouse-first controls with keyboard fallback
+- `Classic`/`Enhanced` gameplay mode toggle (`Classic` default)
+- Classic score/life rules in `Classic` mode (extra life every 20,000 points, up to 8 lives)
+- Classic yummies (guided, diamond, machine gun, shield, lock, house cleaning, extra man)
 
 ## Controls
 
-- Left/Right: Move
-- Space: Fire
-- R: Restart after Game Over
+- Mouse: Move in player zone
+- Mouse click (or Space): Fire
+- Arrow keys: Keyboard movement fallback
+- P or CapsLock: Pause / Resume
+- Esc (while playing or paused): Abort run to title
+- Space (title/game over): Start a new run
+- Options > Gameplay Mode: switch `Classic` / `Enhanced`
 
 ## Tests
 

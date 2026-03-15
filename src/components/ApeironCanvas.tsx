@@ -34,6 +34,12 @@ export function ApeironCanvas({ width, height, gameState, onGameStateUpdate, set
         level: state.level
       });
     };
+    onGameStateUpdate({
+      mode: engine.mode,
+      score: engine.score,
+      highScore: engine.highScore,
+      level: engine.level
+    });
     
     // Start engine
     engine.start();
@@ -45,8 +51,12 @@ export function ApeironCanvas({ width, height, gameState, onGameStateUpdate, set
     if (!engineRef.current) return;
     
     // Update engine mode
-    if (gameState.mode === 'playing' && engineRef.current.mode !== 'playing') {
-      engineRef.current.resume();
+    if (gameState.mode === 'playing') {
+      if (engineRef.current.mode === 'title' || engineRef.current.mode === 'gameover') {
+        engineRef.current.startNewGame();
+      } else if (engineRef.current.mode === 'pause') {
+        engineRef.current.resume();
+      }
     } else if (gameState.mode === 'pause' && engineRef.current.mode === 'playing') {
       engineRef.current.pause();
     }
@@ -64,9 +74,9 @@ export function ApeironCanvas({ width, height, gameState, onGameStateUpdate, set
       width={width}
       height={height}
       style={{
-        background: '#02030a',
-        border: '2px solid #3940ff',
-        boxShadow: '0 0 20px rgba(57,64,255,.35)',
+        background: '#101010',
+        border: 'none',
+        boxShadow: 'none',
         position: 'relative',
         zIndex: 1
       }}

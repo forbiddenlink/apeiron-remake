@@ -124,11 +124,11 @@ export function ConfigTuner({ onConfigChange, onReset }: ConfigTunerProps) {
       name: 'SCORING',
       configs: [
         {
-          key: 'SCORING.CHAIN_MULTIPLIER',
-          value: SCORING.CHAIN_MULTIPLIER,
+          key: 'SCORING.CHAIN_TIMEOUT',
+          value: SCORING.CHAIN_TIMEOUT,
           type: 'number',
-          description: 'Chain multiplier',
-          min: 1,
+          description: 'Chain timeout (sec)',
+          min: 0.2,
           max: 5,
           step: 0.1
         },

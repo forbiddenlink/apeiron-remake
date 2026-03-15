@@ -3,6 +3,7 @@ import { SCORE } from '../game/Constants';
 
 interface MenuProps {
   mode: 'title' | 'pause' | 'gameover';
+  visualProfile: 'classic' | 'x';
   score: number;
   highScore: number;
   level: number;
@@ -11,24 +12,10 @@ interface MenuProps {
   onOptions: () => void;
 }
 
-export function Menu({ mode, score, highScore, level, onStart, onResume, onOptions }: MenuProps) {
+export function Menu({ mode, visualProfile, score, highScore, level, onStart, onResume, onOptions }: MenuProps) {
   const [selectedOption, setSelectedOption] = useState(0);
-  const [titlePhase, setTitlePhase] = useState(0);
   const [showTutorial, setShowTutorial] = useState(false);
-  
-  // Psychedelic color cycling for title
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTitlePhase(p => (p + 1) % 360);
-    }, 50);
-    return () => clearInterval(interval);
-  }, []);
-  
-  const getTitleStyle = (offset: number = 0) => ({
-    color: `hsl(${(titlePhase + offset) % 360}, 100%, 50%)`,
-    textShadow: '0 0 10px currentColor',
-    transition: 'color 0.1s ease-in-out'
-  });
+  const classic = visualProfile === 'classic';
   
   const menuStyle: React.CSSProperties = {
     position: 'absolute',
@@ -40,9 +27,9 @@ export function Menu({ mode, score, highScore, level, onStart, onResume, onOptio
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    background: 'rgba(0, 0, 0, 0.85)',
-    color: '#fff',
-    fontFamily: 'monospace',
+    background: 'rgba(0, 0, 0, 0.44)',
+    color: '#d6eef4',
+    fontFamily: '"Lucida Sans Typewriter", "Courier New", monospace',
     fontSize: '24px',
     textAlign: 'center',
     zIndex: 100
@@ -50,14 +37,20 @@ export function Menu({ mode, score, highScore, level, onStart, onResume, onOptio
   
   const optionStyle = (index: number): React.CSSProperties => ({
     cursor: 'pointer',
-    padding: '10px 20px',
-    margin: '5px 0',
+    padding: '8px 20px',
+    margin: '6px 0',
+    minWidth: '190px',
     border: '2px solid transparent',
-    borderRadius: '5px',
+    borderRadius: '1px',
     transition: 'all 0.2s ease',
-    background: selectedOption === index ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
-    borderColor: selectedOption === index ? '#fff' : 'transparent',
-    textShadow: selectedOption === index ? '0 0 10px #fff' : 'none'
+    background: selectedOption === index
+      ? (classic ? 'rgba(216, 53, 43, 0.18)' : 'rgba(18, 74, 92, 0.3)')
+      : 'rgba(0,0,0,0.3)',
+    borderColor: selectedOption === index
+      ? (classic ? '#f17159' : '#4bd9ef')
+      : '#41525e',
+    color: selectedOption === index ? '#f5fdff' : '#d6eef4',
+    letterSpacing: '0.5px'
   });
   
   const handleKeyDown = (e: KeyboardEvent) => {
@@ -80,39 +73,33 @@ export function Menu({ mode, score, highScore, level, onStart, onResume, onOptio
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [mode, selectedOption]);
   
-  const handleSelect = () => {
+  const handleSelect = (targetIndex: number = selectedOption) => {
     switch(mode) {
       case 'title':
-        if (selectedOption === 0) onStart();
-        else if (selectedOption === 1) setShowTutorial(true);
-        else if (selectedOption === 2) onOptions();
+        if (targetIndex === 0) onStart();
+        else if (targetIndex === 1) setShowTutorial(true);
+        else if (targetIndex === 2) onOptions();
         break;
       case 'pause':
-        if (selectedOption === 0) onResume?.();
-        else if (selectedOption === 1) onOptions();
+        if (targetIndex === 0) onResume?.();
+        else if (targetIndex === 1) onOptions();
         break;
       case 'gameover':
-        if (selectedOption === 0) onStart();
-        else if (selectedOption === 1) onOptions();
+        if (targetIndex === 0) onStart();
+        else if (targetIndex === 1) onOptions();
         break;
     }
   };
   
   const renderTitle = () => (
     <>
-      <h1 style={{ fontSize: '48px', marginBottom: '40px' }}>
-        <span style={getTitleStyle(0)}>A</span>
-        <span style={getTitleStyle(30)}>P</span>
-        <span style={getTitleStyle(60)}>E</span>
-        <span style={getTitleStyle(90)}>I</span>
-        <span style={getTitleStyle(120)}>R</span>
-        <span style={getTitleStyle(150)}>O</span>
-        <span style={getTitleStyle(180)}>N</span>
+      <h1 style={{ fontSize: '56px', marginBottom: '36px', color: '#f0b555', letterSpacing: '2px', fontFamily: '"Times New Roman", Georgia, serif' }}>
+        {classic ? 'APEIRON' : 'APEIRON X'}
       </h1>
-      <div onClick={() => { setSelectedOption(0); handleSelect(); }} style={optionStyle(0)}>START GAME</div>
-      <div onClick={() => { setSelectedOption(1); handleSelect(); }} style={optionStyle(1)}>TUTORIAL</div>
-      <div onClick={() => { setSelectedOption(2); handleSelect(); }} style={optionStyle(2)}>OPTIONS</div>
-      <div style={{ marginTop: '40px', fontSize: '18px' }}>HIGH SCORE: {highScore}</div>
+      <div onClick={() => { setSelectedOption(0); handleSelect(0); }} style={optionStyle(0)}>START GAME</div>
+      <div onClick={() => { setSelectedOption(1); handleSelect(1); }} style={optionStyle(1)}>TUTORIAL</div>
+      <div onClick={() => { setSelectedOption(2); handleSelect(2); }} style={optionStyle(2)}>OPTIONS</div>
+      <div style={{ marginTop: '28px', fontSize: '16px', color: '#9fd6e2' }}>HIGH SCORE: {highScore}</div>
     </>
   );
   
@@ -123,21 +110,21 @@ export function Menu({ mode, score, highScore, level, onStart, onResume, onOptio
         <div>SCORE: {score}</div>
         <div>LEVEL: {level}</div>
       </div>
-      <div onClick={() => { setSelectedOption(0); handleSelect(); }} style={optionStyle(0)}>RESUME</div>
-      <div onClick={() => { setSelectedOption(1); handleSelect(); }} style={optionStyle(1)}>OPTIONS</div>
+      <div onClick={() => { setSelectedOption(0); handleSelect(0); }} style={optionStyle(0)}>RESUME</div>
+      <div onClick={() => { setSelectedOption(1); handleSelect(1); }} style={optionStyle(1)}>OPTIONS</div>
     </>
   );
   
   const renderGameOver = () => (
     <>
-      <h2 style={{ marginBottom: '30px', color: '#ff4081' }}>GAME OVER</h2>
+      <h2 style={{ marginBottom: '30px', color: '#e2759f' }}>GAME OVER</h2>
       <div style={{ marginBottom: '30px' }}>
         <div>FINAL SCORE: {score}</div>
         <div>HIGH SCORE: {highScore}</div>
         <div>LEVEL REACHED: {level}</div>
       </div>
-      <div onClick={() => { setSelectedOption(0); handleSelect(); }} style={optionStyle(0)}>PLAY AGAIN</div>
-      <div onClick={() => { setSelectedOption(1); handleSelect(); }} style={optionStyle(1)}>OPTIONS</div>
+      <div onClick={() => { setSelectedOption(0); handleSelect(0); }} style={optionStyle(0)}>PLAY AGAIN</div>
+      <div onClick={() => { setSelectedOption(1); handleSelect(1); }} style={optionStyle(1)}>OPTIONS</div>
     </>
   );
   
@@ -146,30 +133,36 @@ export function Menu({ mode, score, highScore, level, onStart, onResume, onOptio
       <h2 style={{ marginBottom: '20px' }}>HOW TO PLAY</h2>
       
       <section style={{ marginBottom: '20px' }}>
-        <h3 style={{ color: '#ff4081' }}>CONTROLS</h3>
-        <p>Arrow Keys: Move</p>
-        <p>Space: Fire</p>
-        <p>Shift: Activate Power-up</p>
-        <p>Esc: Pause</p>
+        <h3 style={{ color: '#78f6ff' }}>CONTROLS</h3>
+        <p>Mouse Move: Move (classic)</p>
+        <p>Mouse Click / Space: Fire</p>
+        <p>P or CapsLock: Pause / Resume</p>
+        <p>Esc: Abort game to title</p>
+      </section>
+
+      <section style={{ marginBottom: '20px' }}>
+        <h3 style={{ color: '#78f6ff' }}>MODES</h3>
+        <p>Classic: faithful scoring/pacing and classic rules</p>
+        <p>Enhanced: modern combo and faster enemy pacing</p>
+        <p>Switch in Options - Gameplay Mode</p>
       </section>
       
       <section style={{ marginBottom: '20px' }}>
-        <h3 style={{ color: '#ff4081' }}>POWER-UPS</h3>
-        <p>Autofire: Continuous shooting</p>
-        <p>Spread Shot: Fire in three directions</p>
-        <p>Rapid Fire: Increased fire rate</p>
-        <p>Shield: Temporary invincibility</p>
-        <p>Warp Speed: Enhanced movement</p>
-        <p>Phase Shift: Pass through enemies</p>
-        <p>Mega Blast: Charged super shot</p>
+        <h3 style={{ color: '#78f6ff' }}>POWER-UPS</h3>
+        <p>Guided Shot (squiggle): bullets track targets</p>
+        <p>Diamond: pass through mushrooms</p>
+        <p>Machine Gun: rapid fire</p>
+        <p>Shield: temporary protection</p>
+        <p>Lock: keep Yummies after death</p>
+        <p>House Cleaning: clears player zone mushrooms</p>
+        <p>Extra Man: +1 life</p>
       </section>
       
       <section style={{ marginBottom: '20px' }}>
-        <h3 style={{ color: '#ff4081' }}>SCORING</h3>
-        <p>Chain hits for multipliers</p>
-        <p>Perfect field bonus: +{SCORE.PERFECT_CLEAR}</p>
-        <p>Speed clear bonus: +{SCORE.SPEED_CLEAR}</p>
-        <p>No-hit bonus: +{SCORE.NO_HIT}</p>
+        <h3 style={{ color: '#78f6ff' }}>SCORING</h3>
+        <p>Poison mushroom hit: +{SCORE.POISON_MUSHROOM_HIT}</p>
+        <p>Gecko (scorpion): +{SCORE.SCORPION}</p>
+        <p>Extra life every 20,000 points (max 8)</p>
       </section>
       
       <div 
