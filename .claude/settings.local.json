@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:overclockworked.neocities.org)",
+      "WebFetch(domain:atpm.com)",
+      "WebFetch(domain:macintoshgarden.org)",
+      "WebFetch(domain:www.macintoshrepository.org)",
+      "WebFetch(domain:archive.org)",
+      "WebFetch(domain:tcrf.net)",
+      "WebFetch(domain:www.lucysnyder.com)",
+      "WebFetch(domain:blogcritics.org)",
+      "WebFetch(domain:www.macworld.com)",
+      "WebFetch(domain:lowendmac.com)",
+      "Bash(npx tsc:*)",
+      "mcp__plugin_playwright_playwright__browser_press_key",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "Bash([ -f .claude/scripts/generate-reasoning.sh ])",
+      "Bash(bash:*)"
+    ]
+  }
+}
