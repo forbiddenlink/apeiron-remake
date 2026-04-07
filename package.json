@@ -9,13 +9,20 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "biome:check": "biome check .",
+    "biome:fix": "biome check . --write",
+    "biome:format": "biome format . --write"
   },
   "dependencies": {
+    "howler": "^2.2.4",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "sparticles": "^2.1.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.9",
+    "@types/howler": "^2.2.12",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^5.0.0",

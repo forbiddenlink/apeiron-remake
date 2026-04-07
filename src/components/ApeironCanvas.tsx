@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Engine } from '../game/Engine';
 import { GameSettings } from './Options';
+import { sparticleEffects } from '../game/SparticleEffects';
 
 interface ApeironCanvasProps {
   width: number;
@@ -16,15 +17,37 @@ interface ApeironCanvasProps {
 }
 
 export function ApeironCanvas({ width, height, gameState, onGameStateUpdate, settings }: ApeironCanvasProps) {
+  const containerRef = useRef<HTMLDivElement|null>(null);
   const ref = useRef<HTMLCanvasElement|null>(null);
   const engineRef = useRef<Engine|null>(null);
   
+  // Initialize Sparticle background effects
+  useEffect(() => {
+    if (!containerRef.current) return;
+    sparticleEffects.attach(containerRef.current);
+    sparticleEffects.setIntensity(settings.particleDensity);
+    sparticleEffects.setEnabled(settings.gameMode !== 'classic');
+
+    return () => sparticleEffects.detach();
+  }, []);
+
+  // Update sparticle settings when they change
+  useEffect(() => {
+    sparticleEffects.setIntensity(settings.particleDensity);
+    sparticleEffects.setEnabled(settings.gameMode !== 'classic');
+  }, [settings.particleDensity, settings.gameMode]);
+
+  // Update sparticle theme based on level
+  useEffect(() => {
+    sparticleEffects.setThemeFromWave(gameState.level);
+  }, [gameState.level]);
+
   // Initialize engine
   useEffect(() => {
     if (!ref.current) return;
     const engine = new Engine(ref.current, width, height);
     engineRef.current = engine;
-    
+
     // Set up game state sync
     engine.onStateChange = (state) => {
       onGameStateUpdate({
@@ -40,7 +63,7 @@ export function ApeironCanvas({ width, height, gameState, onGameStateUpdate, set
       highScore: engine.highScore,
       level: engine.level
     });
-    
+
     // Start engine
     engine.start();
     return () => engine.destroy();
@@ -69,17 +92,27 @@ export function ApeironCanvas({ width, height, gameState, onGameStateUpdate, set
   }, [settings]);
   
   return (
-    <canvas
-      ref={ref}
-      width={width}
-      height={height}
+    <div
+      ref={containerRef}
       style={{
-        background: '#101010',
-        border: 'none',
-        boxShadow: 'none',
         position: 'relative',
-        zIndex: 1
+        width,
+        height,
+        overflow: 'hidden'
       }}
-    />
+    >
+      <canvas
+        ref={ref}
+        width={width}
+        height={height}
+        style={{
+          background: '#101010',
+          border: 'none',
+          boxShadow: 'none',
+          position: 'relative',
+          zIndex: 1
+        }}
+      />
+    </div>
   );
 }
