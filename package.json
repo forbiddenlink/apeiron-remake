@@ -28,9 +28,18 @@
     "@vitejs/plugin-react": "^5.0.0",
     "@vitest/ui": "^2.0.5",
     "typescript": "^5.5.4",
-    "vite": "^5.4.2",
+    "vite": "^6.4.2",
     "vitest": "^2.0.5"
   },
   "description": "A remake of the Apeiron game using React and Vite with modern web technologies",
-  "license": "MIT"
+  "license": "MIT",
+  "pnpm": {
+    "overrides": {
+      "esbuild": ">=0.25.0",
+      "vite": ">=6.4.2",
+      "rollup": ">=4.59.0",
+      "flatted": ">=3.4.2",
+      "picomatch": ">=4.0.4"
+    }
+  }
 }
