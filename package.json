@@ -26,10 +26,10 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^5.0.0",
-    "@vitest/ui": "^2.0.5",
+    "@vitest/ui": "^4.1.4",
     "typescript": "^5.5.4",
     "vite": "^6.4.2",
-    "vitest": "^2.0.5"
+    "vitest": "^4.1.4"
   },
   "description": "A remake of the Apeiron game using React and Vite with modern web technologies",
   "license": "MIT",
