@@ -18,17 +18,17 @@
     "howler": "^2.2.4",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
-    "sparticles": "^2.1.0"
+    "sparticles": "^2.2.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.9",
-    "@types/howler": "^2.2.12",
+    "@biomejs/biome": "^2.4.16",
+    "@types/howler": "^2.2.13",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.0.0",
     "@vitest/ui": "^2.0.5",
     "typescript": "^6.0.3",
-    "vite": "^6.4.2",
+    "vite": "^8.0.16",
     "vitest": "^2.0.5"
   },
   "description": "A remake of the Apeiron game using React and Vite with modern web technologies",
