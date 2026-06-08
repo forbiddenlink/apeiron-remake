@@ -16,14 +16,14 @@
   },
   "dependencies": {
     "howler": "^2.2.4",
-    "react": "^19.2.6",
-    "react-dom": "^19.2.6",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
     "sparticles": "^2.2.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.16",
     "@types/howler": "^2.2.13",
-    "@types/react": "^19.2.15",
+    "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.0.0",
     "@vitest/ui": "^2.0.5",
