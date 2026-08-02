@@ -16,3 +16,6 @@ out/
 .DS_Store
 Thumbs.db
 package-lock.json
+
+# visual-regression harness: keep baselines, ignore run outputs
+tools/artifacts/

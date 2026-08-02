@@ -10,9 +10,16 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:run": "vitest run",
+    "typecheck": "tsc --noEmit",
     "biome:check": "biome check .",
     "biome:fix": "biome check . --write",
-    "biome:format": "biome format . --write"
+    "biome:format": "biome format . --write",
+    "vr:baseline": "node tools/baseline.mjs",
+    "vr:gate": "node tools/gate.mjs",
+    "vr:capture": "node tools/capture.mjs",
+    "vr:profile": "node tools/profile.mjs",
+    "vr:playtest": "node tools/playtest.mjs",
+    "vr:serve": "vite preview --port 4173 --strictPort"
   },
   "dependencies": {
     "howler": "^2.2.4",
@@ -27,6 +34,9 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.4",
     "@vitest/ui": "^4.1.10",
+    "pixelmatch": "^7.2.0",
+    "playwright": "^1.62.1",
+    "pngjs": "^7.0.0",
     "typescript": "^6.0.3",
     "vite": "^8.1.5",
     "vitest": "^4.1.10"

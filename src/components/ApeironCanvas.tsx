@@ -47,6 +47,12 @@ export function ApeironCanvas({ width, height, gameState, onGameStateUpdate, set
     if (!ref.current) return;
     const engine = new Engine(ref.current, width, height);
     engineRef.current = engine;
+    // Test seam: headless visual-regression / playtest harness drives the
+    // engine directly (see tools/). No-op in normal runs unless the harness
+    // set window.__APEIRON_TEST__ via addInitScript before boot.
+    if ((window as unknown as { __APEIRON_TEST__?: boolean }).__APEIRON_TEST__) {
+      (window as unknown as { __apeironEngine?: Engine }).__apeironEngine = engine;
+    }
 
     // Set up game state sync
     engine.onStateChange = (state) => {

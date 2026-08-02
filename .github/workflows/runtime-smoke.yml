@@ -1,0 +1,36 @@
+name: runtime-smoke
+# Headless playtest smoke: boots the built app, drives a scripted deterministic
+# run, and fails on any crash or console error. Environment-INDEPENDENT (asserts
+# invariants, not pixels), so it is safe to run in CI. The bit-identical pixel
+# gate (pnpm run vr:gate) is a LOCAL tool -- its baselines are OS/font-AA
+# specific, so it is not run here.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Build
+        run: pnpm run build
+      - name: Start preview server
+        run: |
+          pnpm run vr:serve &
+          npx --yes wait-on http://localhost:4173/ --timeout 60000
+      - name: Playtest smoke
+        run: pnpm run vr:playtest
