@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type JSX } from 'react';
 import Sparticles from 'sparticles';
 import { PARTICLE_COLOR_SCHEMES, PERFORMANCE_PRESETS, type PerformanceLevel } from '../../../lib/particles';
 
