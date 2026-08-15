@@ -23,7 +23,7 @@ import {
 } from './ProceduralSprites';
 import { sfx } from './AudioSynth';
 import { makeRng } from './RNG';
-import { DEFAULT_GAME_MODE, getFallingMushroomChance, getLevelTuning, getTouchdownRules, spawnsCoins, usesModernScoring, usesPsychedelicMushrooms, usesReflectiveMushrooms, type GameMode } from './GameMode';
+import { DEFAULT_GAME_MODE, getFallingMushroomChance, getLevelTuning, getTouchdownRules, getWaveComposition, spawnsCoins, usesModernScoring, usesPsychedelicMushrooms, usesReflectiveMushrooms, type GameMode } from './GameMode';
 import { WEAPONS } from './Constants';
 
 const CELL = GRID.CELL;
@@ -1197,9 +1197,14 @@ export class Engine{
       }
     }
     
-    // Setup enemies
-    const len = tuning.centipedeLength;
-    this.centipedes = [ new Centipede(len, this.level) ];
+    // Setup enemies. Canon composition: one shrinking main body plus independent
+    // single-segment heads spread across the top, growing in number by wave.
+    const comp = getWaveComposition(this.level, this.settings.gameMode);
+    this.centipedes = [ new Centipede(comp.mainLength, this.level) ];
+    for (let h = 0; h < comp.loneHeads; h++) {
+      const col = Math.floor(((h + 1) * COLS) / (comp.loneHeads + 1));
+      this.centipedes.push(new Centipede(1, this.level, col));
+    }
     this.spiders.length = 0;
     this.fleas.length = 0;
     this.scorpions.length = 0;

@@ -11,11 +11,10 @@ export class Centipede {
   private touchedDown = false;
   private vdir: 1 | -1 = 1; // vertical travel: 1 = descending, -1 = climbing back up
   
-  constructor(len: number, level: number) {
-    const startRow = 0;
+  constructor(len: number, level: number, startCol: number = GRID.COLS - 2, startRow = 0) {
     for (let i = 0; i < len; i++) {
       this.segments.push({ 
-        c: (GRID.COLS - 2) - i, 
+        c: startCol - i, 
         r: startRow, 
         dir: 1, 
         head: i === 0 

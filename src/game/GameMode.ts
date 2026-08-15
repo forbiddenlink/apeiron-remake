@@ -70,3 +70,24 @@ export function usesPsychedelicMushrooms(level: number, mode: GameMode): boolean
 export function usesReflectiveMushrooms(level: number, mode: GameMode): boolean {
   return mode === 'enhanced' && level >= REFLECTED_BULLET.START_WAVE;
 }
+
+export interface WaveComposition {
+  mainLength: number;
+  loneHeads: number;
+}
+
+// Canon Apeiron/Centipede: the main body starts at 12 segments and shrinks each
+// wave (floored), while extra single-segment "heads" enter independently as waves
+// climb. Higher waves get harder through more simultaneous heads + faster motion,
+// not a longer body.
+export function getWaveComposition(level: number, mode: GameMode): WaveComposition {
+  const l = Math.max(1, level);
+  const mainLength = Math.max(6, 12 - (l - 1));
+  const loneHeads = Math.min(l - 1, 8);
+  if (mode === 'classic') return { mainLength, loneHeads };
+  // Enhanced: a longer main body and more heads for extra pressure.
+  return {
+    mainLength: Math.min(14, mainLength + 2),
+    loneHeads: Math.min(loneHeads + 2, 12)
+  };
+}
