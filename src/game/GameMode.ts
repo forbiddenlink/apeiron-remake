@@ -1,4 +1,5 @@
 import { TIMERS } from './GameConfig';
+import { PSYCHEDELIC, REFLECTED_BULLET } from './Constants';
 
 export type GameMode = 'classic' | 'enhanced';
 
@@ -54,4 +55,18 @@ export function getTouchdownRules(mode: GameMode): { segmentCap: number; friendC
 
 export function usesModernScoring(mode: GameMode): boolean {
   return mode === 'enhanced';
+}
+
+// Modern-enhancement systems. Classic Apeiron has none of these; they must stay
+// entirely inside the Enhanced profile so Classic play never drifts from the original.
+export function spawnsCoins(mode: GameMode): boolean {
+  return mode === 'enhanced';
+}
+
+export function usesPsychedelicMushrooms(level: number, mode: GameMode): boolean {
+  return mode === 'enhanced' && level >= PSYCHEDELIC.START_WAVE;
+}
+
+export function usesReflectiveMushrooms(level: number, mode: GameMode): boolean {
+  return mode === 'enhanced' && level >= REFLECTED_BULLET.START_WAVE;
 }
