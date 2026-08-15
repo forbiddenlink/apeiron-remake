@@ -4,7 +4,7 @@ import { Menu } from './components/Menu';
 import { Options, GameSettings } from './components/Options';
 
 const defaultSettings: GameSettings = {
-  gameMode: 'enhanced',
+  gameMode: 'classic', // Classic is the documented default (see README / design doc)
   musicVolume: 70,
   sfxVolume: 80,
   particleDensity: 'low',
