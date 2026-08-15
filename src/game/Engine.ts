@@ -23,7 +23,7 @@ import {
 } from './ProceduralSprites';
 import { sfx } from './AudioSynth';
 import { makeRng } from './RNG';
-import { DEFAULT_GAME_MODE, getFallingMushroomChance, getLevelTuning, getTouchdownRules, usesModernScoring, type GameMode } from './GameMode';
+import { DEFAULT_GAME_MODE, getFallingMushroomChance, getLevelTuning, getTouchdownRules, getWaveComposition, spawnsCoins, usesModernScoring, usesPsychedelicMushrooms, usesReflectiveMushrooms, type GameMode } from './GameMode';
 import { WEAPONS } from './Constants';
 
 const CELL = GRID.CELL;
@@ -90,6 +90,7 @@ export class Engine{
   // Coin frenzy state
   private coinFrenzyActive = false;
   private coinsCollected = 0;
+  private coinFrenzyTimer = 0; // deterministic countdown (seconds) for active frenzy
   
   // Scoring mechanics
   private combo = 1;
@@ -158,8 +159,9 @@ export class Engine{
       if (!this.grid.get(c, r)) {
         const mush = new Mushroom(c, r);
 
-        // Reflective mushrooms appear in high waves (reflects bullets back)
-        if (this.level >= REFLECTED_BULLET.START_WAVE) {
+        // Reflective mushrooms appear in high waves (reflects bullets back).
+        // Enhanced-only: Classic Apeiron has no bullet-reflecting mushrooms.
+        if (usesReflectiveMushrooms(this.level, this.settings.gameMode)) {
           const reflectChance = Math.min(
             REFLECTED_BULLET.MAX_CHANCE,
             (this.level - REFLECTED_BULLET.START_WAVE) * REFLECTED_BULLET.CHANCE_PER_WAVE
@@ -169,8 +171,9 @@ export class Engine{
           }
         }
 
-        // Psychedelic mushrooms (rainbow - triggers point multiplier)
-        if (this.level >= PSYCHEDELIC.START_WAVE && !mush.reflective) {
+        // Psychedelic mushrooms (rainbow - triggers point multiplier).
+        // Enhanced-only: Classic Apeiron has no point-multiplier mushrooms.
+        if (usesPsychedelicMushrooms(this.level, this.settings.gameMode) && !mush.reflective) {
           if (this.rand() < PSYCHEDELIC.SPAWN_CHANCE) {
             mush.psychedelic = true;
           }
@@ -321,6 +324,7 @@ export class Engine{
     }
 
     // COINS update
+    this.updateCoinFrenzy(dt);
     for (const coin of this.coins) {
       if (!coin.active) continue;
       coin.y += coin.vy * dt;
@@ -1193,9 +1197,14 @@ export class Engine{
       }
     }
     
-    // Setup enemies
-    const len = tuning.centipedeLength;
-    this.centipedes = [ new Centipede(len, this.level) ];
+    // Setup enemies. Canon composition: one shrinking main body plus independent
+    // single-segment heads spread across the top, growing in number by wave.
+    const comp = getWaveComposition(this.level, this.settings.gameMode);
+    this.centipedes = [ new Centipede(comp.mainLength, this.level) ];
+    for (let h = 0; h < comp.loneHeads; h++) {
+      const col = Math.floor(((h + 1) * COLS) / (comp.loneHeads + 1));
+      this.centipedes.push(new Centipede(1, this.level, col));
+    }
     this.spiders.length = 0;
     this.fleas.length = 0;
     this.scorpions.length = 0;
@@ -1252,8 +1261,10 @@ export class Engine{
     if (this.rand() < POWERUPS.SPAWN_CHANCE) {
       this.spawnPowerUp(x, y);
     }
-    // Also try to drop coins
-    this.maybeDropCoin(x, y);
+    // Also try to drop coins. Enhanced-only: Classic Apeiron has no coin system.
+    if (spawnsCoins(this.settings.gameMode)) {
+      this.maybeDropCoin(x, y);
+    }
   }
 
   // COIN SYSTEM - coins drop from enemies and can trigger frenzy
@@ -1300,14 +1311,22 @@ export class Engine{
       });
     }
 
-    // End frenzy after duration
-    setTimeout(() => {
-      this.coinFrenzyActive = false;
-      if (this.coinsCollected > 10) {
-        this.addScore(SCORE.COIN_FRENZY_BONUS, 'bonus');
-        this.addPopup(this.width / 2, this.height / 2, `FRENZY BONUS! ${this.coinsCollected} COINS!`);
-      }
-    }, TIMERS.COIN_FRENZY_DURATION * 1000);
+    // End frenzy after duration via a deterministic countdown ticked in update(),
+    // not setTimeout (wall-clock timers break the fixed-timestep engine + VR replay).
+    this.coinFrenzyTimer = TIMERS.COIN_FRENZY_DURATION;
+  }
+
+  // Ticks the active coin-frenzy countdown; fires the end-of-frenzy bonus once it expires.
+  private updateCoinFrenzy(dt: number) {
+    if (!this.coinFrenzyActive) return;
+    this.coinFrenzyTimer -= dt;
+    if (this.coinFrenzyTimer > 0) return;
+    this.coinFrenzyTimer = 0;
+    this.coinFrenzyActive = false;
+    if (this.coinsCollected > 10) {
+      this.addScore(SCORE.COIN_FRENZY_BONUS, 'bonus');
+      this.addPopup(this.width / 2, this.height / 2, `FRENZY BONUS! ${this.coinsCollected} COINS!`);
+    }
   }
 
   private resetGame(keepHi=false){
@@ -1331,6 +1350,7 @@ export class Engine{
     this.psychedelicMultiplier = 1;
     this.coinFrenzyActive = false;
     this.coinsCollected = 0;
+    this.coinFrenzyTimer = 0;
     this.spiderTimer=randRange(TIMERS.SPAWN_SPIDER_MIN,TIMERS.SPAWN_SPIDER_MAX, this.rand);
     this.fleaCd=TIMERS.SPAWN_FLEA_COOLDOWN;
     this.scorpionTimer=randRange(TIMERS.SPAWN_SCORPION_MIN,TIMERS.SPAWN_SCORPION_MAX, this.rand);
