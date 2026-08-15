@@ -9,6 +9,7 @@ export class Centipede {
   private speed: number;
   private poisonDive = false;
   private touchedDown = false;
+  private vdir: 1 | -1 = 1; // vertical travel: 1 = descending, -1 = climbing back up
   
   constructor(len: number, level: number) {
     const startRow = 0;
@@ -41,26 +42,45 @@ export class Centipede {
   private step(grid: Grid) {
     const prev = this.segments.map(s => ({ c: s.c, r: s.r }));
     const head = this.segments[0];
-    const maxRow = GRID.ROWS - GRID.PLAYER_ROWS - 1;
+    const bottomRow = GRID.ROWS - 1;
+    // Once it touches down it weaves between the bottom row and the top of the
+    // player zone rather than teleporting back up to the top of the field.
+    const ascendFloor = GRID.ROWS - GRID.PLAYER_ROWS - 1;
 
     if (this.poisonDive) {
-      head.r = Math.min(maxRow, head.r + 1);
-      if (head.r >= maxRow) { 
-        this.poisonDive = false; 
+      head.r = Math.min(bottomRow, head.r + 1);
+      if (head.r >= bottomRow) {
+        this.poisonDive = false;
+        this.vdir = -1;
+        this.touchedDown = true;
       }
     } else {
-      let nextC = head.c + head.dir;
+      const nextC = head.c + head.dir;
       const edge = nextC < 0 || nextC >= GRID.COLS;
       const mush = !edge ? grid.get(nextC, head.r) : null;
       const willHitPoison = !!mush?.poisoned;
 
       if (willHitPoison) {
-        // Enter dive mode; move down one row this step
+        // Poisoned mushroom sends the head diving straight down.
         this.poisonDive = true;
-        head.r = Math.min(maxRow, head.r + 1);
+        head.r = Math.min(bottomRow, head.r + 1);
+        if (head.r >= bottomRow) {
+          this.poisonDive = false;
+          this.vdir = -1;
+          this.touchedDown = true;
+        }
       } else if (edge || (!!mush)) {
-        head.r = Math.min(maxRow, head.r + 1);
+        // Reverse horizontally and step one row in the current vertical direction.
+        head.r += this.vdir;
         head.dir = head.dir === 1 ? -1 : 1;
+        if (this.vdir === 1 && head.r >= bottomRow) {
+          head.r = bottomRow;
+          this.vdir = -1;
+          this.touchedDown = true;
+        } else if (this.vdir === -1 && head.r <= ascendFloor) {
+          head.r = ascendFloor;
+          this.vdir = 1;
+        }
       } else {
         head.c = nextC;
       }
@@ -70,13 +90,6 @@ export class Centipede {
     for (let i = 1; i < this.segments.length; i++) { 
       this.segments[i].c = prev[i-1].c; 
       this.segments[i].r = prev[i-1].r; 
-    }
-
-    // Classic behavior: touchdown at bottom row, then restart from top.
-    if (head.r >= maxRow) { 
-      this.touchedDown = true;
-      head.r = 0; 
-      this.poisonDive = false;
     }
   }
 }
