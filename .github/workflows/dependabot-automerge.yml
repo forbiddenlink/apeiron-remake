@@ -1,5 +1,8 @@
 name: Dependabot auto-merge
-# Auto-merges dependabot patch + minor PRs once CI passes. Major updates stay manual.
+# CI-gated: waits for the repo's CI workflow (ci.yml) to pass on this PR's head SHA,
+# then squash-merges patch + minor dependabot PRs. Major updates stay manual.
+# No branch protection required (you keep direct push to main). No third-party app.
+# Deadlock-free: polls the ci.yml run specifically, not "all checks" (which would include itself).
 on: pull_request_target
 permissions:
   contents: write
@@ -9,14 +12,34 @@ jobs:
     if: ${{ github.actor == 'dependabot[bot]' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Fetch dependabot metadata
+      - name: Dependabot metadata
         id: meta
-        uses: dependabot/fetch-metadata@v3
+        uses: dependabot/fetch-metadata@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Enable auto-merge (patch + minor only)
+
+      - name: Wait for CI, then merge (patch + minor only)
         if: ${{ steps.meta.outputs.update-type == 'version-update:semver-patch' || steps.meta.outputs.update-type == 'version-update:semver-minor' }}
-        run: gh pr merge --auto --squash "$PR_URL"
         env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "Waiting for CI (ci.yml) on $SHA ..."
+          for i in $(seq 1 90); do
+            state=$(gh run list --repo "$REPO" --workflow=ci.yml --commit "$SHA" \
+                      --json status,conclusion --jq '.[0] // empty | "\(.status)/\(.conclusion)"' 2>/dev/null || true)
+            case "$state" in
+              completed/success)
+                echo "CI green -> merging"
+                gh pr merge --squash --delete-branch "$PR_URL"
+                exit 0 ;;
+              completed/*)
+                echo "CI not green ($state) -> leaving PR open for review"
+                exit 0 ;;
+              *)
+                sleep 20 ;;
+            esac
+          done
+          echo "Timed out waiting for CI; leaving PR open."
