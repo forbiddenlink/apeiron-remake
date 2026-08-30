@@ -7,3 +7,4 @@ overrides:
   rollup: ">=4.59.0"
   flatted: ">=3.4.2"
   picomatch: ">=4.0.4"
+  nanoid: "3.3.18"

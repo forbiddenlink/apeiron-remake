@@ -1,0 +1,27 @@
+{
+  "allowedForCodex": true,
+  "automationLevel": "manual",
+  "confidentialContext": "none",
+  "context": "personal",
+  "hosting": [],
+  "kind": "app",
+  "lastReviewedAt": "2026-08-27",
+  "lifecycle": "prototype",
+  "notes": "React prototype with test signals. Candidate for design/a11y and release-readiness sweeps if revived.",
+  "observability": [],
+  "ownerContext": "personal",
+  "source": "owned",
+  "surface": "product",
+  "systems": [
+    "solo-control-tower"
+  ],
+  "tags": [
+    "biome",
+    "playwright",
+    "react",
+    "vitest"
+  ],
+  "urls": {
+    "repository": "https://github.com/forbiddenlink/apeiron-remake"
+  }
+}
