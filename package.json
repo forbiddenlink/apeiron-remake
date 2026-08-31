@@ -32,11 +32,11 @@
     "sparticles": "^2.2.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.10",
+    "@biomejs/biome": "^2.5.11",
     "@types/howler": "^2.2.13",
     "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.4",
-    "@vitejs/plugin-react": "^6.0.5",
+    "@types/react-dom": "^19.2.5",
+    "@vitejs/plugin-react": "^6.1.0",
     "@vitest/ui": "^4.1.11",
     "pixelmatch": "^7.2.0",
     "playwright": "^1.62.1",
