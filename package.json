@@ -32,7 +32,7 @@
     "sparticles": "^2.2.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.12",
+    "@biomejs/biome": "2.5.12",
     "@types/howler": "^2.2.13",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
