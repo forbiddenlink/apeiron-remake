@@ -20,8 +20,7 @@ full detail; this file only summarizes both.
 - Testing: Vitest (gameplay logic), Playwright + `pixelmatch`/`pngjs` (visual
   regression harness in `tools/`)
 - Biome for lint/format
-- pnpm (`pnpm-lock.yaml`, `pnpm-workspace.yaml`) - the README's `npm install`/
-  `npm run` quickstart commands are stale; use pnpm
+- pnpm (`pnpm-lock.yaml`, `pnpm-workspace.yaml`)
 
 ## Commands
 
