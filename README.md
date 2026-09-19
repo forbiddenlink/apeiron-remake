@@ -1,18 +1,10 @@
-# Apeiron Remake v0.3 (All Code: Procedural Sprites + Synth SFX)
+# Apeiron Remake
 
-## Quickstart
+A remake of the arcade game Apeiron (Centipede-style), built with React + Vite. All
+assets are procedural: no image or audio files - sprites come from
+`ProceduralSprites`, audio from `AudioSynth`/`MusicSynth`. No live URL on file.
 
-```powershell
-# install deps
-npm install
-
-# start dev server (Vite, strict port 5173)
-npm run dev
-```
-
-Open the printed local URL (<http://localhost:5173>). If you see another site, clear your browser cache and unregister any service workers.
-
-## What’s included
+## Features
 
 - Deterministic fixed-timestep engine tuned for classic Apeiron mechanics
 - Procedural pixel art (no image files)
@@ -24,20 +16,36 @@ Open the printed local URL (<http://localhost:5173>). If you see another site, c
 
 ## Controls
 
-- Mouse: Move in player zone
-- Mouse click (or Space): Fire
-- Arrow keys: Keyboard movement fallback
-- P or CapsLock: Pause / Resume
-- Esc (while playing or paused): Abort run to title
-- Space (title/game over): Start a new run
+- Mouse: move in player zone
+- Mouse click (or Space): fire
+- Arrow keys: keyboard movement fallback
+- P or CapsLock: pause / resume
+- Esc (while playing or paused): abort run to title
+- Space (title/game over): start a new run
 - Options > Gameplay Mode: switch `Classic` / `Enhanced`
 
-## Tests
+## Quickstart
 
-```powershell
-# one-shot test run (recommended for CI and terminals that should exit)
-npm run test
-
-# watch mode (interactive, press q to quit)
-npm run test:watch
+```bash
+pnpm install
+pnpm dev              # vite, strict port 5173
 ```
+
+Open the printed local URL (<http://localhost:5173>). If you see another site, clear
+your browser cache and unregister any service workers.
+
+## Scripts
+
+| Script | Purpose |
+|---|---|
+| `pnpm dev` / `build` / `preview` | Vite dev server / production build / preview |
+| `pnpm check` | typecheck + test + build |
+| `pnpm test` / `test:watch` | Vitest |
+| `pnpm typecheck` | `tsc --noEmit` |
+| `pnpm biome:check` / `biome:fix` | Biome lint/format |
+| `pnpm run vr:baseline` / `vr:gate` / `vr:capture` / `vr:profile` / `vr:playtest` | Visual regression harness, see [tools/README.md](tools/README.md) |
+
+## Docs
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) - design-invariant contract and subsystem ownership
+- [tools/README.md](tools/README.md) - visual regression / reproducibility harness
