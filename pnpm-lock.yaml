@@ -10,7 +10,7 @@ overrides:
   rollup: '>=4.59.0'
   flatted: '>=3.4.2'
   picomatch: '>=4.0.4'
-  nanoid: 3.3.18
+  nanoid: 3.3.19
 
 importers:
 
@@ -558,8 +558,8 @@ packages:
     resolution: {integrity: sha512-Y3wQdFg2Va6etvQ5I82yUhGdsKrcYox6p7FfL1LbK2J4V01F9TGlepTIhnK24t7koZibmg82KGglhA1XK5IsLQ==}
     engines: {node: '>=10'}
 
-  nanoid@3.3.18:
-    resolution: {integrity: sha512-DTg4MJbGMWkfi6VZFdNt2/caMbQy4Ou+Op/hJQvGEWcnVfoA1QA+xzRKAzw9jD6+GVOOeYr/mIcuDSdug6F6+w==}
+  nanoid@3.3.19:
+    resolution: {integrity: sha512-Y2tUNy4ouw6tq5oDSKeQYGOyhkUBhNOcGV/02KC+6kd9eDGqdZd++mjMiIDilrBYvjEnCYvVtsuHCuP+okSfug==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
@@ -1063,7 +1063,7 @@ snapshots:
 
   mrmime@2.0.1: {}
 
-  nanoid@3.3.18: {}
+  nanoid@3.3.19: {}
 
   obug@2.1.4: {}
 
@@ -1087,7 +1087,7 @@ snapshots:
 
   postcss@8.5.26:
     dependencies:
-      nanoid: 3.3.18
+      nanoid: 3.3.19
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
