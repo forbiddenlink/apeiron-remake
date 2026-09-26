@@ -14,13 +14,17 @@ export interface LevelTuning {
   geckoMax: number
 }
 
+// Classic Scobster gap, counted only while no Scobster is on screen. Footage shows
+// one at a time, 8-28s between appearances in a wave; a Scobster lives ~2-5s.
+const CLASSIC_SCOBSTER_GAP = { MIN: 8, MAX: 20, MIN_FLOOR: 4, MAX_FLOOR: 10 } as const
+
 function getClassicTuning(level: number): LevelTuning {
   const l = Math.max(1, level)
   return {
     mushroomDensity: 0.14 + Math.min(0.13, (l - 1) * 0.018),
     centipedeLength: Math.min(16, 10 + Math.floor(l * 2)),
-    spiderMin: Math.max(1.5, TIMERS.SPAWN_SPIDER_MIN - l * 0.2),
-    spiderMax: Math.max(3.0, TIMERS.SPAWN_SPIDER_MAX - l * 0.3),
+    spiderMin: Math.max(CLASSIC_SCOBSTER_GAP.MIN_FLOOR, CLASSIC_SCOBSTER_GAP.MIN - (l - 1) * 0.3),
+    spiderMax: Math.max(CLASSIC_SCOBSTER_GAP.MAX_FLOOR, CLASSIC_SCOBSTER_GAP.MAX - (l - 1) * 0.8),
     geckoMin: Math.max(3.0, TIMERS.SPAWN_GECKO_MIN - l * 0.25),
     geckoMax: Math.max(6.0, TIMERS.SPAWN_GECKO_MAX - l * 0.4),
   }
@@ -30,11 +34,12 @@ export function getLevelTuning(level: number, mode: GameMode): LevelTuning {
   const classic = getClassicTuning(level)
   if (mode === 'classic') return classic
 
+  const l = Math.max(1, level)
   return {
     mushroomDensity: Math.min(0.34, classic.mushroomDensity + 0.03),
     centipedeLength: Math.min(20, classic.centipedeLength + 2),
-    spiderMin: Math.max(1.1, classic.spiderMin * 0.82),
-    spiderMax: Math.max(2.2, classic.spiderMax * 0.82),
+    spiderMin: Math.max(1.1, Math.max(1.5, TIMERS.SPAWN_SPIDER_MIN - l * 0.2) * 0.82),
+    spiderMax: Math.max(2.2, Math.max(3.0, TIMERS.SPAWN_SPIDER_MAX - l * 0.3) * 0.82),
     geckoMin: Math.max(2.2, classic.geckoMin * 0.82),
     geckoMax: Math.max(4.2, classic.geckoMax * 0.82),
   }
@@ -74,6 +79,18 @@ export function usesReflectiveMushrooms(level: number, mode: GameMode): boolean 
 
 // The original guide says a Pentipede touchdown "invites his friends in to
 // help celebrate", so reinforcements apply to both profiles.
+// Classic holds the Scobster timer while one is alive, so they never stack.
+export function tickScobsterSpawn(
+  timer: number,
+  dt: number,
+  alive: number,
+  mode: GameMode
+): { timer: number; spawn: boolean } {
+  if (mode === 'classic' && alive > 0) return { timer, spawn: false }
+  const next = timer - dt
+  return { timer: next, spawn: next <= 0 }
+}
+
 export function spawnsTouchdownFriends(_mode: GameMode): boolean {
   return true
 }
