@@ -34,8 +34,7 @@ Key mechanics confirmed from the guide:
   - Head segment: 100
   - Flea: 200 (doubles when multiple fleas are active and killed in sequence)
   - Gecko: 1000
-  - Scorpion: 1500 (proximity-based; not yet a separate runtime enemy)
-  - Spider/Scobster: proximity-tiered (300/600/900 family)
+  - Larry the Scobster: proximity-tiered, 1500 max (the FAQ table calls him "Scorpion")
   - Spaceship: variable random value within the manual range
 - Mushroom points:
   - Regular mushroom hit: 1
@@ -54,7 +53,7 @@ Implemented in this pass:
 - Build restored and tests restored to green.
 - Codebase compatibility layer added around fractured config migration.
 - Classic scoring updates:
-- `SCORE.GECKO = 1000`; `SCORE.SCORPION = 1500`
+- `SCORE.GECKO = 1000`; `SCORE.SCOBSTER_NEAR/MED/FAR = 1500/1000/500`
   - `EXTRA_LIFE_STEP = 20000`
   - Extra-life cap at 8 lives in runtime awarding logic.
   - Flea kill value now scales with concurrent-flea streak behavior.
@@ -71,7 +70,7 @@ Implemented in this pass:
   - guided/machine-gun/shield/diamond effect paths retained
 - Pentipede touchdown signal now triggers reinforcement pressure:
   - new centipede spawn (bounded by total segment cap),
-  - plus occasional "friend" spawn (spider/flea/scorpion) with short cooldown.
+  - plus occasional "friend" spawn (scobster/flea/gecko) with short cooldown.
 - Enemy movement pass simplified to classic-style readable motion patterns (removed non-classic burst/chase timers and async `setTimeout` behavior).
 - Gameplay profile split is now implemented:
   - `Classic` (default): faithful scoring and pacing rules.
@@ -90,7 +89,7 @@ remain remake calibration targets; the FAQ does not establish those values.
 - Some modern visual/audio flourishes remain enabled (kept intentionally as enhancement layer).
 - Exact enemy spawn windows and movement amplitudes still need side-by-side calibration against original gameplay footage.
 - Multiplier Yummy behavior is implemented against the visible Bonus total. The original guide confirms its target but not its factor; the current 2× value is remake calibration.
-- The source describes a separate proximity-scored Scorpion. The current gecko-named runtime enemy is now correctly scored but still carries the legacy `Scorpion` class name; the distinct Scorpion enemy remains unmodeled.
+- Correction (2026-09-26): the FAQ's "Scorpion 1500" row is Larry the Scobster, not a separate enemy. Its footnote ("the closer you are when you kill him, the more points he's worth") matches the FAQ's own Scobster tips, and the table has no spider row. The Scobster now scores 1500 at close range; the FAQ gives only that max, so the 1000/500 lower tiers keep Centipede's 3:2:1 ratio as calibration. The gecko's legacy `Scorpion` class is renamed `Gecko`.
 
 ## Next Implementation Pass (Recommended)
 1. Add regression tests for:

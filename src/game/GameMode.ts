@@ -10,8 +10,8 @@ export interface LevelTuning {
   centipedeLength: number
   spiderMin: number
   spiderMax: number
-  scorpionMin: number
-  scorpionMax: number
+  geckoMin: number
+  geckoMax: number
 }
 
 function getClassicTuning(level: number): LevelTuning {
@@ -21,8 +21,8 @@ function getClassicTuning(level: number): LevelTuning {
     centipedeLength: Math.min(16, 10 + Math.floor(l * 2)),
     spiderMin: Math.max(1.5, TIMERS.SPAWN_SPIDER_MIN - l * 0.2),
     spiderMax: Math.max(3.0, TIMERS.SPAWN_SPIDER_MAX - l * 0.3),
-    scorpionMin: Math.max(3.0, TIMERS.SPAWN_SCORPION_MIN - l * 0.25),
-    scorpionMax: Math.max(6.0, TIMERS.SPAWN_SCORPION_MAX - l * 0.4),
+    geckoMin: Math.max(3.0, TIMERS.SPAWN_GECKO_MIN - l * 0.25),
+    geckoMax: Math.max(6.0, TIMERS.SPAWN_GECKO_MAX - l * 0.4),
   }
 }
 
@@ -35,8 +35,8 @@ export function getLevelTuning(level: number, mode: GameMode): LevelTuning {
     centipedeLength: Math.min(20, classic.centipedeLength + 2),
     spiderMin: Math.max(1.1, classic.spiderMin * 0.82),
     spiderMax: Math.max(2.2, classic.spiderMax * 0.82),
-    scorpionMin: Math.max(2.2, classic.scorpionMin * 0.82),
-    scorpionMax: Math.max(4.2, classic.scorpionMax * 0.82),
+    geckoMin: Math.max(2.2, classic.geckoMin * 0.82),
+    geckoMax: Math.max(4.2, classic.geckoMax * 0.82),
   }
 }
 

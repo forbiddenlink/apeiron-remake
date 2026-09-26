@@ -22,8 +22,8 @@ describe('Game mode tuning', () => {
     expect(enhanced.centipedeLength).toBeGreaterThanOrEqual(classic.centipedeLength)
     expect(enhanced.spiderMin).toBeLessThanOrEqual(classic.spiderMin)
     expect(enhanced.spiderMax).toBeLessThanOrEqual(classic.spiderMax)
-    expect(enhanced.scorpionMin).toBeLessThanOrEqual(classic.scorpionMin)
-    expect(enhanced.scorpionMax).toBeLessThanOrEqual(classic.scorpionMax)
+    expect(enhanced.geckoMin).toBeLessThanOrEqual(classic.geckoMin)
+    expect(enhanced.geckoMax).toBeLessThanOrEqual(classic.geckoMax)
   })
 
   it('uses stricter touchdown and falling mushroom rules in enhanced mode', () => {
