@@ -91,7 +91,8 @@ remain remake calibration targets; the FAQ does not establish those values.
 - Calibrated 2026-09-26 against original 1995 footage (youtube.com/watch?v=irQzOwsLlok), frames checked by eye:
   - Classic Bonus is a per-wave countdown: 2000 at wave start, down in steps of 10 at ~25-30 points/second, remainder banked into Score when the wave clears. It is not the remake's earlier running tally of special kills.
   - The Multiplier Yummy triples the Bonus (1250->3750, 1410->4230, 1450->4350; the first confirmed frame by frame) and does not change Score at pickup.
-  - Still uncalibrated: psychedelic mushroom spawn wave and duration (none appeared in 25 minutes of footage), falling-mushroom pacing (2 sightings), per-wave enemy spawn windows.
+  - Larry the Scobster appears one at a time, 8-28s apart within a wave, in the original and in the Apeiron X port (youtube.com/watch?v=yG6W0hnXdPw). These timestamps come from a model pass over both videos, not a frame-by-frame check. Classic now holds the Scobster timer while one is alive and draws the gap from 8-20s on wave 1, shrinking to a 4-10s floor. Enhanced keeps its older, stacking cadence.
+  - Still uncalibrated: psychedelic mushroom spawn wave and duration (none appeared in 25 minutes of footage), falling-mushroom pacing (2 sightings), Gecko and Flea spawn windows.
 - Correction (2026-09-26): the FAQ's "Scorpion 1500" row is Larry the Scobster, not a separate enemy. Its footnote ("the closer you are when you kill him, the more points he's worth") matches the FAQ's own Scobster tips, and the table has no spider row. The Scobster now scores 1500 at close range; the FAQ gives only that max, so the 1000/500 lower tiers keep Centipede's 3:2:1 ratio as calibration. The gecko's legacy `Scorpion` class is renamed `Gecko`.
 
 ## Next Implementation Pass (Recommended)

@@ -28,6 +28,7 @@ import {
   getWaveComposition,
   spawnsCoins,
   spawnsTouchdownFriends,
+  tickScobsterSpawn,
   usesModernScoring,
   usesPsychedelicMushrooms,
   usesReflectiveMushrooms,
@@ -562,8 +563,14 @@ export class Engine {
     const modeTuning = getLevelTuning(this.level, this.settings.gameMode)
 
     // Larry the Scobster (Spider)
-    this.spiderTimer -= dt
-    if (this.spiderTimer <= 0) {
+    const scobster = tickScobsterSpawn(
+      this.spiderTimer,
+      dt,
+      this.spiders.filter((s) => !s.dead).length,
+      this.settings.gameMode
+    )
+    this.spiderTimer = scobster.timer
+    if (scobster.spawn) {
       this.spiders.push(new Spider(this.level, this.rand))
       this.spiderTimer = randRange(modeTuning.spiderMin, modeTuning.spiderMax, this.rand)
     }
@@ -1200,7 +1207,7 @@ export class Engine {
       if (!spawnsTouchdownFriends(this.settings.gameMode)) continue
       if (this.touchdownFriendCd > 0) continue
       const roll = this.rand()
-      if (roll < 0.45 && this.spiders.length < 2) {
+      if (roll < 0.45 && this.spiders.length < (this.settings.gameMode === 'classic' ? 1 : 2)) {
         this.spiders.push(new Spider(this.level, this.rand))
       } else if (roll < 0.8 && this.fleas.length < 3) {
         this.fleas.push(new Flea(this.rand))
