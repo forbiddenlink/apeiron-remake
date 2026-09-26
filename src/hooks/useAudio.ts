@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
 import { Howl, Howler } from 'howler'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 interface AudioTrack {
   id: string
   src: string | string[]
   loop?: boolean
   volume?: number
-  sprite?: Record<string, [number, number]>  // [offset_ms, duration_ms]
+  sprite?: Record<string, [number, number]> // [offset_ms, duration_ms]
 }
 
 export function useAudio(tracks: AudioTrack[]) {
@@ -22,15 +22,25 @@ export function useAudio(tracks: AudioTrack[]) {
         loop: track.loop ?? false,
         volume: track.volume ?? 0.7,
         sprite: track.sprite,
-        onplay: () => setPlaying(prev => new Set(prev).add(track.id)),
-        onstop: () => setPlaying(prev => { const next = new Set(prev); next.delete(track.id); return next }),
-        onend: () => setPlaying(prev => { const next = new Set(prev); next.delete(track.id); return next }),
+        onplay: () => setPlaying((prev) => new Set(prev).add(track.id)),
+        onstop: () =>
+          setPlaying((prev) => {
+            const next = new Set(prev)
+            next.delete(track.id)
+            return next
+          }),
+        onend: () =>
+          setPlaying((prev) => {
+            const next = new Set(prev)
+            next.delete(track.id)
+            return next
+          }),
       })
       sounds.current.set(track.id, howl)
     }
 
     return () => {
-      sounds.current.forEach(howl => howl.unload())
+      for (const howl of sounds.current.values()) howl.unload()
       sounds.current.clear()
     }
   }, [tracks])

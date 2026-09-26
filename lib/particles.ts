@@ -1,7 +1,7 @@
 // Sparticles integration for Apeiron game
 // Provides configurable particle effects with game-appropriate settings
 
-import Sparticles from 'sparticles';
+import Sparticles from 'sparticles'
 
 // Color schemes matching game aesthetic
 export const PARTICLE_COLOR_SCHEMES: Record<string, string[]> = {
@@ -13,10 +13,19 @@ export const PARTICLE_COLOR_SCHEMES: Record<string, string[]> = {
   ocean: ['#00bfff', '#1e90ff', '#4169e1', '#6495ed', '#87ceeb'],
   fire: ['#ff4500', '#ff6347', '#ff7f50', '#ffa500', '#ffb347'],
   ice: ['#e0ffff', '#b0e0e6', '#add8e6', '#87ceeb', '#00bfff'],
-  energy: ['#ff1744', '#40c4ff', '#ffd700', '#64ffda', '#ff4081']
-};
+  energy: ['#ff1744', '#40c4ff', '#ffd700', '#64ffda', '#ff4081'],
+}
 
-export type ColorScheme = 'cosmic' | 'neon' | 'classic' | 'psychedelic' | 'toxic' | 'ocean' | 'fire' | 'ice' | 'energy';
+export type ColorScheme =
+  | 'cosmic'
+  | 'neon'
+  | 'classic'
+  | 'psychedelic'
+  | 'toxic'
+  | 'ocean'
+  | 'fire'
+  | 'ice'
+  | 'energy'
 
 // Performance presets based on device capability
 export const PERFORMANCE_PRESETS = {
@@ -25,43 +34,43 @@ export const PERFORMANCE_PRESETS = {
     speedMultiplier: 0.8,
     glowEnabled: false,
     twinkleEnabled: false,
-    parallaxEnabled: false
+    parallaxEnabled: false,
   },
   medium: {
     countMultiplier: 1.0,
     speedMultiplier: 1.0,
     glowEnabled: true,
     twinkleEnabled: true,
-    parallaxEnabled: true
+    parallaxEnabled: true,
   },
   high: {
     countMultiplier: 2.0,
     speedMultiplier: 1.0,
     glowEnabled: true,
     twinkleEnabled: true,
-    parallaxEnabled: true
-  }
-} as const;
+    parallaxEnabled: true,
+  },
+} as const
 
-export type PerformanceLevel = keyof typeof PERFORMANCE_PRESETS;
+export type PerformanceLevel = keyof typeof PERFORMANCE_PRESETS
 
 // Particle effect presets
 export interface ParticlePreset {
-  count: number;
-  speed: number;
-  color: string | string[];
-  minSize: number;
-  maxSize: number;
-  shape: 'circle' | 'square' | 'star' | 'line' | 'triangle';
-  glow: number;
-  drift: number;
-  rotate: boolean;
-  parallax: number;
-  twinkle: boolean;
-  direction: number;
-  bounce: boolean;
-  alphaSpeed: number;
-  alphaVariance: number;
+  count: number
+  speed: number
+  color: string | string[]
+  minSize: number
+  maxSize: number
+  shape: 'circle' | 'square' | 'star' | 'line' | 'triangle'
+  glow: number
+  drift: number
+  rotate: boolean
+  parallax: number
+  twinkle: boolean
+  direction: number
+  bounce: boolean
+  alphaSpeed: number
+  alphaVariance: number
 }
 
 export const PARTICLE_PRESETS: Record<string, ParticlePreset> = {
@@ -81,7 +90,7 @@ export const PARTICLE_PRESETS: Record<string, ParticlePreset> = {
     direction: 0,
     bounce: false,
     alphaSpeed: 8,
-    alphaVariance: 0.5
+    alphaVariance: 0.5,
   },
 
   // Trailing particles
@@ -100,7 +109,7 @@ export const PARTICLE_PRESETS: Record<string, ParticlePreset> = {
     direction: 180,
     bounce: false,
     alphaSpeed: 5,
-    alphaVariance: 0.3
+    alphaVariance: 0.3,
   },
 
   // Ambient background particles
@@ -119,7 +128,7 @@ export const PARTICLE_PRESETS: Record<string, ParticlePreset> = {
     direction: 180,
     bounce: false,
     alphaSpeed: 3,
-    alphaVariance: 0.4
+    alphaVariance: 0.4,
   },
 
   // Powerup collection effect
@@ -138,7 +147,7 @@ export const PARTICLE_PRESETS: Record<string, ParticlePreset> = {
     direction: 0,
     bounce: false,
     alphaSpeed: 6,
-    alphaVariance: 0.5
+    alphaVariance: 0.5,
   },
 
   // Sparkle effect for collectibles
@@ -157,7 +166,7 @@ export const PARTICLE_PRESETS: Record<string, ParticlePreset> = {
     direction: 0,
     bounce: false,
     alphaSpeed: 10,
-    alphaVariance: 0.6
+    alphaVariance: 0.6,
   },
 
   // Toxic/poison effect
@@ -176,7 +185,7 @@ export const PARTICLE_PRESETS: Record<string, ParticlePreset> = {
     direction: 0,
     bounce: false,
     alphaSpeed: 4,
-    alphaVariance: 0.4
+    alphaVariance: 0.4,
   },
 
   // Neon glow effect
@@ -195,7 +204,7 @@ export const PARTICLE_PRESETS: Record<string, ParticlePreset> = {
     direction: 180,
     bounce: false,
     alphaSpeed: 4,
-    alphaVariance: 0.5
+    alphaVariance: 0.5,
   },
 
   // Psychedelic rainbow effect
@@ -214,28 +223,29 @@ export const PARTICLE_PRESETS: Record<string, ParticlePreset> = {
     direction: 0,
     bounce: false,
     alphaSpeed: 5,
-    alphaVariance: 0.5
-  }
-};
+    alphaVariance: 0.5,
+  },
+}
 
 export interface ParticleConfig {
-  preset: keyof typeof PARTICLE_PRESETS;
-  colorScheme?: ColorScheme;
-  performanceLevel?: PerformanceLevel;
-  intensity?: number;
-  customColors?: string[];
+  preset: keyof typeof PARTICLE_PRESETS
+  colorScheme?: ColorScheme
+  performanceLevel?: PerformanceLevel
+  intensity?: number
+  customColors?: string[]
 }
 
 /**
  * Creates sparticles options from a preset and configuration
  */
 export function createParticleOptions(config: ParticleConfig): Partial<ParticlePreset> {
-  const preset = PARTICLE_PRESETS[config.preset];
-  const performance = PERFORMANCE_PRESETS[config.performanceLevel || 'medium'];
-  const intensity = config.intensity ?? 1.0;
+  const preset = PARTICLE_PRESETS[config.preset]
+  const performance = PERFORMANCE_PRESETS[config.performanceLevel || 'medium']
+  const intensity = config.intensity ?? 1.0
 
-  const colors = config.customColors
-    || (config.colorScheme ? PARTICLE_COLOR_SCHEMES[config.colorScheme] : preset.color);
+  const colors =
+    config.customColors ||
+    (config.colorScheme ? PARTICLE_COLOR_SCHEMES[config.colorScheme] : preset.color)
 
   return {
     ...preset,
@@ -244,36 +254,36 @@ export function createParticleOptions(config: ParticleConfig): Partial<ParticleP
     color: colors,
     glow: performance.glowEnabled ? preset.glow : 0,
     twinkle: performance.twinkleEnabled && preset.twinkle,
-    parallax: performance.parallaxEnabled ? preset.parallax : 0
-  };
+    parallax: performance.parallaxEnabled ? preset.parallax : 0,
+  }
 }
 
 /**
  * Particle manager for creating and managing multiple sparticle instances
  */
 export class SparticleManager {
-  private instances: Map<string, Sparticles> = new Map();
-  private containers: Map<string, HTMLCanvasElement> = new Map();
-  private performanceLevel: PerformanceLevel = 'medium';
-  private globalIntensity: number = 1.0;
+  private instances: Map<string, Sparticles> = new Map()
+  private containers: Map<string, HTMLCanvasElement> = new Map()
+  private performanceLevel: PerformanceLevel = 'medium'
+  private globalIntensity: number = 1.0
 
   constructor(performanceLevel: PerformanceLevel = 'medium') {
-    this.performanceLevel = performanceLevel;
+    this.performanceLevel = performanceLevel
   }
 
   /**
    * Set global performance level
    */
   setPerformanceLevel(level: PerformanceLevel): void {
-    this.performanceLevel = level;
+    this.performanceLevel = level
     // Recreate all instances with new performance level
     for (const [id] of this.instances) {
-      const container = this.containers.get(id);
+      const container = this.containers.get(id)
       if (container?.parentElement) {
-        const config = (this.instances.get(id) as any)?._config;
+        const config = (this.instances.get(id) as any)?._config
         if (config) {
-          this.destroy(id);
-          this.create(id, container.parentElement as HTMLElement, config);
+          this.destroy(id)
+          this.create(id, container.parentElement as HTMLElement, config)
         }
       }
     }
@@ -283,7 +293,7 @@ export class SparticleManager {
    * Set global intensity multiplier
    */
   setIntensity(intensity: number): void {
-    this.globalIntensity = Math.max(0, Math.min(2, intensity));
+    this.globalIntensity = Math.max(0, Math.min(2, intensity))
   }
 
   /**
@@ -291,36 +301,36 @@ export class SparticleManager {
    */
   create(id: string, container: HTMLElement, config: ParticleConfig): Sparticles | null {
     // Clean up existing instance
-    this.destroy(id);
+    this.destroy(id)
 
     // Create canvas for this instance
-    const canvas = document.createElement('canvas');
-    canvas.style.position = 'absolute';
-    canvas.style.top = '0';
-    canvas.style.left = '0';
-    canvas.style.width = '100%';
-    canvas.style.height = '100%';
-    canvas.style.pointerEvents = 'none';
-    canvas.style.zIndex = '1';
-    container.appendChild(canvas);
+    const canvas = document.createElement('canvas')
+    canvas.style.position = 'absolute'
+    canvas.style.top = '0'
+    canvas.style.left = '0'
+    canvas.style.width = '100%'
+    canvas.style.height = '100%'
+    canvas.style.pointerEvents = 'none'
+    canvas.style.zIndex = '1'
+    container.appendChild(canvas)
 
     const options = createParticleOptions({
       ...config,
       performanceLevel: this.performanceLevel,
-      intensity: (config.intensity ?? 1.0) * this.globalIntensity
-    });
+      intensity: (config.intensity ?? 1.0) * this.globalIntensity,
+    })
 
     try {
-      const sparticles = new Sparticles(canvas, options);
-      this.instances.set(id, sparticles);
-      this.containers.set(id, canvas);
+      const sparticles = new Sparticles(canvas, options)
+      this.instances.set(id, sparticles)
+      this.containers.set(id, canvas)
       // Store config for recreation
-      (sparticles as any)._config = config;
-      return sparticles;
+      ;(sparticles as any)._config = config
+      return sparticles
     } catch (e) {
-      console.warn(`Failed to create sparticles instance ${id}:`, e);
-      canvas.remove();
-      return null;
+      console.warn(`Failed to create sparticles instance ${id}:`, e)
+      canvas.remove()
+      return null
     }
   }
 
@@ -328,16 +338,16 @@ export class SparticleManager {
    * Get an existing instance
    */
   get(id: string): Sparticles | undefined {
-    return this.instances.get(id);
+    return this.instances.get(id)
   }
 
   /**
    * Update options for an existing instance
    */
   updateOptions(id: string, options: Partial<ParticlePreset>): void {
-    const instance = this.instances.get(id);
+    const instance = this.instances.get(id)
     if (instance) {
-      instance.setOptions(options);
+      instance.setOptions(options)
     }
   }
 
@@ -345,23 +355,23 @@ export class SparticleManager {
    * Change color scheme for an instance
    */
   setColorScheme(id: string, scheme: ColorScheme): void {
-    this.updateOptions(id, { color: PARTICLE_COLOR_SCHEMES[scheme] });
+    this.updateOptions(id, { color: PARTICLE_COLOR_SCHEMES[scheme] })
   }
 
   /**
    * Destroy a sparticle instance
    */
   destroy(id: string): void {
-    const instance = this.instances.get(id);
+    const instance = this.instances.get(id)
     if (instance) {
-      instance.destroy();
-      this.instances.delete(id);
+      instance.destroy()
+      this.instances.delete(id)
     }
 
-    const canvas = this.containers.get(id);
+    const canvas = this.containers.get(id)
     if (canvas) {
-      canvas.remove();
-      this.containers.delete(id);
+      canvas.remove()
+      this.containers.delete(id)
     }
   }
 
@@ -370,7 +380,7 @@ export class SparticleManager {
    */
   destroyAll(): void {
     for (const [id] of this.instances) {
-      this.destroy(id);
+      this.destroy(id)
     }
   }
 
@@ -378,9 +388,9 @@ export class SparticleManager {
    * Get all active instance IDs
    */
   getActiveIds(): string[] {
-    return Array.from(this.instances.keys());
+    return Array.from(this.instances.keys())
   }
 }
 
 // Export singleton manager
-export const particleManager = new SparticleManager();
+export const particleManager = new SparticleManager()

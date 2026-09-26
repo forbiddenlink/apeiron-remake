@@ -1,38 +1,46 @@
 // Enhanced particle effects using Sparticles library
 // Provides beautiful, performant particle effects for background ambiance
 
-import Sparticles from 'sparticles';
+import Sparticles from 'sparticles'
 import {
   PARTICLE_COLOR_SCHEMES,
   PERFORMANCE_PRESETS,
-  type PerformanceLevel
-} from '../../lib/particles';
+  type PerformanceLevel,
+} from '../../lib/particles'
 
 export interface SparticleConfig {
-  count: number;
-  speed: number;
-  color: string | string[];
-  size: number | { min: number; max: number };
-  direction: number;
-  shape: 'circle' | 'square' | 'star' | 'line' | 'triangle';
-  glow: number;
-  drift: number;
-  rotate: boolean;
-  parallax: number;
-  bounce: boolean;
-  twinkle: boolean;
+  count: number
+  speed: number
+  color: string | string[]
+  size: number | { min: number; max: number }
+  direction: number
+  shape: 'circle' | 'square' | 'star' | 'line' | 'triangle'
+  glow: number
+  drift: number
+  rotate: boolean
+  parallax: number
+  bounce: boolean
+  twinkle: boolean
 }
 
 // Extended theme type including background themes
-export type SparticleTheme = 'cosmic' | 'neon' | 'classic' | 'psychedelic' | 'toxic' | 'ocean' | 'fire' | 'ice';
+export type SparticleTheme =
+  | 'cosmic'
+  | 'neon'
+  | 'classic'
+  | 'psychedelic'
+  | 'toxic'
+  | 'ocean'
+  | 'fire'
+  | 'ice'
 
 export class SparticleEffects {
-  private container: HTMLElement | null = null;
-  private sparticles: Sparticles | null = null;
-  private currentTheme: SparticleTheme = 'cosmic';
-  private enabled = true;
-  private intensity: PerformanceLevel = 'medium';
-  private canvas: HTMLCanvasElement | null = null;
+  private container: HTMLElement | null = null
+  private sparticles: Sparticles | null = null
+  private currentTheme: SparticleTheme = 'cosmic'
+  private enabled = true
+  private intensity: PerformanceLevel = 'medium'
+  private canvas: HTMLCanvasElement | null = null
 
   // Theme configurations for different visual moods - matching game backgrounds
   private static readonly THEMES: Record<SparticleTheme, Partial<SparticleConfig>> = {
@@ -47,7 +55,7 @@ export class SparticleEffects {
       rotate: false,
       parallax: 0.8,
       twinkle: true,
-      direction: 180
+      direction: 180,
     },
     neon: {
       count: 80,
@@ -60,7 +68,7 @@ export class SparticleEffects {
       rotate: true,
       parallax: 0.6,
       twinkle: true,
-      direction: 180
+      direction: 180,
     },
     classic: {
       count: 60,
@@ -73,7 +81,7 @@ export class SparticleEffects {
       rotate: false,
       parallax: 0.4,
       twinkle: false,
-      direction: 180
+      direction: 180,
     },
     psychedelic: {
       count: 150,
@@ -86,7 +94,7 @@ export class SparticleEffects {
       rotate: true,
       parallax: 1.0,
       twinkle: true,
-      direction: 0
+      direction: 0,
     },
     toxic: {
       count: 90,
@@ -99,7 +107,7 @@ export class SparticleEffects {
       rotate: false,
       parallax: 0.5,
       twinkle: false,
-      direction: 90
+      direction: 90,
     },
     ocean: {
       count: 100,
@@ -112,7 +120,7 @@ export class SparticleEffects {
       rotate: false,
       parallax: 0.7,
       twinkle: true,
-      direction: 180
+      direction: 180,
     },
     fire: {
       count: 70,
@@ -125,7 +133,7 @@ export class SparticleEffects {
       rotate: false,
       parallax: 0.3,
       twinkle: false,
-      direction: 0
+      direction: 0,
     },
     ice: {
       count: 80,
@@ -138,53 +146,53 @@ export class SparticleEffects {
       rotate: false,
       parallax: 0.9,
       twinkle: true,
-      direction: 180
-    }
-  };
+      direction: 180,
+    },
+  }
 
   // Use performance presets from lib/particles
   private static readonly INTENSITY_MULTIPLIERS = {
     low: PERFORMANCE_PRESETS.low.countMultiplier,
     medium: PERFORMANCE_PRESETS.medium.countMultiplier,
-    high: PERFORMANCE_PRESETS.high.countMultiplier
-  };
+    high: PERFORMANCE_PRESETS.high.countMultiplier,
+  }
 
   constructor() {
     // Will be initialized when attached to a container
   }
 
   attach(container: HTMLElement): void {
-    this.container = container;
+    this.container = container
     if (this.enabled) {
-      this.initSparticles();
+      this.initSparticles()
     }
   }
 
   detach(): void {
-    this.destroy();
-    this.container = null;
+    this.destroy()
+    this.container = null
   }
 
   private initSparticles(): void {
-    if (!this.container || !this.enabled) return;
+    if (!this.container || !this.enabled) return
 
     // Clean up existing instance
-    this.destroy();
+    this.destroy()
 
-    const theme = SparticleEffects.THEMES[this.currentTheme];
-    const intensityMult = SparticleEffects.INTENSITY_MULTIPLIERS[this.intensity];
-    const perf = PERFORMANCE_PRESETS[this.intensity];
+    const theme = SparticleEffects.THEMES[this.currentTheme]
+    const intensityMult = SparticleEffects.INTENSITY_MULTIPLIERS[this.intensity]
+    const perf = PERFORMANCE_PRESETS[this.intensity]
 
     // Create canvas element for sparticles
-    this.canvas = document.createElement('canvas');
-    this.canvas.style.position = 'absolute';
-    this.canvas.style.top = '0';
-    this.canvas.style.left = '0';
-    this.canvas.style.width = '100%';
-    this.canvas.style.height = '100%';
-    this.canvas.style.pointerEvents = 'none';
-    this.canvas.style.zIndex = '0';
-    this.container.insertBefore(this.canvas, this.container.firstChild);
+    this.canvas = document.createElement('canvas')
+    this.canvas.style.position = 'absolute'
+    this.canvas.style.top = '0'
+    this.canvas.style.left = '0'
+    this.canvas.style.width = '100%'
+    this.canvas.style.height = '100%'
+    this.canvas.style.pointerEvents = 'none'
+    this.canvas.style.zIndex = '0'
+    this.container.insertBefore(this.canvas, this.container.firstChild)
 
     try {
       this.sparticles = new Sparticles(this.canvas, {
@@ -194,36 +202,43 @@ export class SparticleEffects {
         minSize: typeof theme.size === 'object' ? theme.size.min : 1,
         maxSize: typeof theme.size === 'object' ? theme.size.max : 3,
         shape: theme.shape || 'circle',
-        glow: perf.glowEnabled ? (theme.glow || 0) : 0,
+        glow: perf.glowEnabled ? theme.glow || 0 : 0,
         drift: theme.drift || 0,
         rotate: theme.rotate || false,
-        parallax: perf.parallaxEnabled ? (theme.parallax || 0) : 0,
+        parallax: perf.parallaxEnabled ? theme.parallax || 0 : 0,
         twinkle: perf.twinkleEnabled && (theme.twinkle || false),
         direction: theme.direction || 180,
         bounce: theme.bounce || false,
         alphaSpeed: 5,
         alphaVariance: 0.5,
-        style: 'fill'
-      });
+        style: 'fill',
+      })
     } catch (e) {
-      console.warn('Failed to initialize Sparticles:', e);
+      console.warn('Failed to initialize Sparticles:', e)
     }
   }
 
   setTheme(theme: SparticleTheme): void {
     if (theme !== this.currentTheme) {
-      this.currentTheme = theme;
-      this.initSparticles();
+      this.currentTheme = theme
+      this.initSparticles()
     }
   }
 
   setThemeFromWave(wave: number): void {
     // Cycle through themes every 4 waves - extended with new themes
-    const themeIndex = Math.floor((wave - 1) / 4) % 8;
+    const themeIndex = Math.floor((wave - 1) / 4) % 8
     const themes: SparticleTheme[] = [
-      'cosmic', 'neon', 'classic', 'psychedelic', 'toxic', 'ocean', 'fire', 'ice'
-    ];
-    this.setTheme(themes[themeIndex]);
+      'cosmic',
+      'neon',
+      'classic',
+      'psychedelic',
+      'toxic',
+      'ocean',
+      'fire',
+      'ice',
+    ]
+    this.setTheme(themes[themeIndex])
   }
 
   /**
@@ -236,16 +251,16 @@ export class SparticleEffects {
       ocean: 'ocean',
       neon: 'neon',
       cosmic: 'cosmic',
-      toxic: 'toxic'
-    };
-    const theme = themeMap[backgroundTheme] || 'cosmic';
-    this.setTheme(theme);
+      toxic: 'toxic',
+    }
+    const theme = themeMap[backgroundTheme] || 'cosmic'
+    this.setTheme(theme)
   }
 
   setIntensity(intensity: PerformanceLevel): void {
     if (intensity !== this.intensity) {
-      this.intensity = intensity;
-      this.initSparticles();
+      this.intensity = intensity
+      this.initSparticles()
     }
   }
 
@@ -253,49 +268,51 @@ export class SparticleEffects {
    * Get current theme
    */
   getTheme(): SparticleTheme {
-    return this.currentTheme;
+    return this.currentTheme
   }
 
   /**
    * Get current intensity level
    */
   getIntensity(): PerformanceLevel {
-    return this.intensity;
+    return this.intensity
   }
 
   setEnabled(enabled: boolean): void {
-    this.enabled = enabled;
+    this.enabled = enabled
     if (enabled && this.container) {
-      this.initSparticles();
+      this.initSparticles()
     } else {
-      this.destroy();
+      this.destroy()
     }
   }
 
   destroy(): void {
     if (this.sparticles) {
-      this.sparticles.destroy();
-      this.sparticles = null;
+      this.sparticles.destroy()
+      this.sparticles = null
     }
     if (this.canvas?.parentNode) {
-      this.canvas.remove();
-      this.canvas = null;
+      this.canvas.remove()
+      this.canvas = null
     }
   }
 
   /**
    * Update sparticles options dynamically
    */
-  updateOptions(options: Partial<{
-    count: number;
-    speed: number;
-    color: string | string[];
-    glow: number;
-    drift: number;
-    twinkle: boolean;
-  }>): void {
+  updateOptions(
+    options: Partial<{
+      count: number
+      speed: number
+      color: string | string[]
+      glow: number
+      drift: number
+      twinkle: boolean
+    }>
+  ): void {
     if (this.sparticles) {
-      this.sparticles.setOptions(options);
+      this.sparticles.setOptions(options)
     }
   }
 
@@ -304,7 +321,7 @@ export class SparticleEffects {
    */
   setColors(colors: string[]): void {
     if (this.sparticles) {
-      this.sparticles.setOptions({ color: colors });
+      this.sparticles.setOptions({ color: colors })
     }
   }
 
@@ -312,7 +329,7 @@ export class SparticleEffects {
    * Check if sparticles is active
    */
   isActive(): boolean {
-    return this.enabled && this.sparticles !== null;
+    return this.enabled && this.sparticles !== null
   }
 
   // Trigger a burst effect at a specific location
@@ -323,7 +340,7 @@ export class SparticleEffects {
 }
 
 // Create singleton instance
-export const sparticleEffects = new SparticleEffects();
+export const sparticleEffects = new SparticleEffects()
 
 // Re-export types for convenience
-export type { PerformanceLevel };
+export type { PerformanceLevel }

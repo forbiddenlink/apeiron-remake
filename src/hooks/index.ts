@@ -1,3 +1,3 @@
-export { useParticles } from './useParticles';
-export type { } from './useParticles';
-export { useAudio } from './useAudio';
+export { useAudio } from './useAudio'
+export type {} from './useParticles'
+export { useParticles } from './useParticles'
