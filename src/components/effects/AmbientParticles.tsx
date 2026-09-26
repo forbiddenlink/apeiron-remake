@@ -1,30 +1,38 @@
-import { useEffect, useRef, useCallback, type JSX } from 'react';
-import Sparticles from 'sparticles';
-import { PARTICLE_COLOR_SCHEMES, PERFORMANCE_PRESETS, type PerformanceLevel, type ColorScheme } from '../../../lib/particles';
+import { type JSX, useCallback, useEffect, useRef } from 'react'
+import Sparticles from 'sparticles'
+import {
+  type ColorScheme,
+  PARTICLE_COLOR_SCHEMES,
+  PERFORMANCE_PRESETS,
+  type PerformanceLevel,
+} from '../../../lib/particles'
 
 interface AmbientParticlesProps {
   /** Color scheme for ambient particles */
-  colorScheme?: ColorScheme;
+  colorScheme?: ColorScheme
   /** Custom colors override */
-  customColors?: string[];
+  customColors?: string[]
   /** Particle density (0.1 to 2.0) */
-  density?: number;
+  density?: number
   /** Device performance level */
-  performanceLevel?: PerformanceLevel;
+  performanceLevel?: PerformanceLevel
   /** Enable ambient particles */
-  enabled?: boolean;
+  enabled?: boolean
   /** Z-index for layering */
-  zIndex?: number;
+  zIndex?: number
 }
 
 // Theme-specific configurations
-const THEME_CONFIGS: Record<ColorScheme, {
-  speed: number;
-  glow: number;
-  drift: number;
-  twinkle: boolean;
-  direction: number;
-}> = {
+const THEME_CONFIGS: Record<
+  ColorScheme,
+  {
+    speed: number
+    glow: number
+    drift: number
+    twinkle: boolean
+    direction: number
+  }
+> = {
   cosmic: { speed: 0.3, glow: 15, drift: 1, twinkle: true, direction: 180 },
   neon: { speed: 0.8, glow: 25, drift: 2, twinkle: true, direction: 180 },
   classic: { speed: 0.25, glow: 8, drift: 0.5, twinkle: false, direction: 180 },
@@ -33,8 +41,8 @@ const THEME_CONFIGS: Record<ColorScheme, {
   ocean: { speed: 0.4, glow: 12, drift: 1.5, twinkle: true, direction: 180 },
   fire: { speed: 0.6, glow: 20, drift: 1, twinkle: false, direction: 0 },
   ice: { speed: 0.2, glow: 10, drift: 0.8, twinkle: true, direction: 180 },
-  energy: { speed: 0.5, glow: 15, drift: 1.5, twinkle: true, direction: 180 }
-};
+  energy: { speed: 0.5, glow: 15, drift: 1.5, twinkle: true, direction: 180 },
+}
 
 /**
  * Background ambient particle effect
@@ -46,40 +54,40 @@ export function AmbientParticles({
   density = 1.0,
   performanceLevel = 'medium',
   enabled = true,
-  zIndex = 0
+  zIndex = 0,
 }: AmbientParticlesProps): JSX.Element | null {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const sparticlesRef = useRef<Sparticles | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null)
+  const sparticlesRef = useRef<Sparticles | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
   const createSparticles = useCallback(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current) return
 
     // Clean up existing
     if (sparticlesRef.current) {
-      sparticlesRef.current.destroy();
-      sparticlesRef.current = null;
+      sparticlesRef.current.destroy()
+      sparticlesRef.current = null
     }
     if (canvasRef.current?.parentNode) {
-      canvasRef.current.remove();
-      canvasRef.current = null;
+      canvasRef.current.remove()
+      canvasRef.current = null
     }
 
-    if (!enabled) return;
+    if (!enabled) return
 
-    const perf = PERFORMANCE_PRESETS[performanceLevel];
-    const themeConfig = THEME_CONFIGS[colorScheme];
-    const colors = customColors || PARTICLE_COLOR_SCHEMES[colorScheme];
+    const perf = PERFORMANCE_PRESETS[performanceLevel]
+    const themeConfig = THEME_CONFIGS[colorScheme]
+    const colors = customColors || PARTICLE_COLOR_SCHEMES[colorScheme]
 
-    const canvas = document.createElement('canvas');
-    canvas.style.position = 'absolute';
-    canvas.style.top = '0';
-    canvas.style.left = '0';
-    canvas.style.width = '100%';
-    canvas.style.height = '100%';
-    canvas.style.pointerEvents = 'none';
-    containerRef.current.appendChild(canvas);
-    canvasRef.current = canvas;
+    const canvas = document.createElement('canvas')
+    canvas.style.position = 'absolute'
+    canvas.style.top = '0'
+    canvas.style.left = '0'
+    canvas.style.width = '100%'
+    canvas.style.height = '100%'
+    canvas.style.pointerEvents = 'none'
+    containerRef.current.appendChild(canvas)
+    canvasRef.current = canvas
 
     try {
       sparticlesRef.current = new Sparticles(canvas, {
@@ -98,35 +106,35 @@ export function AmbientParticles({
         bounce: false,
         alphaSpeed: 3,
         alphaVariance: 0.4,
-        style: 'fill'
-      });
+        style: 'fill',
+      })
     } catch (e) {
-      console.warn('Failed to create ambient particles:', e);
+      console.warn('Failed to create ambient particles:', e)
     }
-  }, [colorScheme, customColors, density, performanceLevel, enabled]);
+  }, [colorScheme, customColors, density, performanceLevel, enabled])
 
   // Initialize
   useEffect(() => {
-    createSparticles();
+    createSparticles()
 
     return () => {
       if (sparticlesRef.current) {
-        sparticlesRef.current.destroy();
-        sparticlesRef.current = null;
+        sparticlesRef.current.destroy()
+        sparticlesRef.current = null
       }
       if (canvasRef.current?.parentNode) {
-        canvasRef.current.remove();
-        canvasRef.current = null;
+        canvasRef.current.remove()
+        canvasRef.current = null
       }
-    };
-  }, [createSparticles]);
+    }
+  }, [createSparticles])
 
   // Update on prop changes
   useEffect(() => {
     if (sparticlesRef.current) {
-      const colors = customColors || PARTICLE_COLOR_SCHEMES[colorScheme];
-      const themeConfig = THEME_CONFIGS[colorScheme];
-      const perf = PERFORMANCE_PRESETS[performanceLevel];
+      const colors = customColors || PARTICLE_COLOR_SCHEMES[colorScheme]
+      const themeConfig = THEME_CONFIGS[colorScheme]
+      const perf = PERFORMANCE_PRESETS[performanceLevel]
 
       sparticlesRef.current.setOptions({
         color: colors,
@@ -134,12 +142,12 @@ export function AmbientParticles({
         glow: perf.glowEnabled ? themeConfig.glow : 0,
         drift: themeConfig.drift,
         twinkle: perf.twinkleEnabled && themeConfig.twinkle,
-        direction: themeConfig.direction
-      });
+        direction: themeConfig.direction,
+      })
     }
-  }, [colorScheme, customColors, performanceLevel]);
+  }, [colorScheme, customColors, performanceLevel])
 
-  if (!enabled) return null;
+  if (!enabled) return null
 
   return (
     <div
@@ -152,10 +160,10 @@ export function AmbientParticles({
         height: '100%',
         pointerEvents: 'none',
         zIndex,
-        overflow: 'hidden'
+        overflow: 'hidden',
       }}
     />
-  );
+  )
 }
 
-export default AmbientParticles;
+export default AmbientParticles

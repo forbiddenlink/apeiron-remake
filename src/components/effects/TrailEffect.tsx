@@ -1,26 +1,31 @@
-import { useEffect, useRef, type JSX } from 'react';
-import Sparticles from 'sparticles';
-import { PARTICLE_COLOR_SCHEMES, PERFORMANCE_PRESETS, type PerformanceLevel, type ColorScheme } from '../../../lib/particles';
+import { type JSX, useEffect, useRef } from 'react'
+import Sparticles from 'sparticles'
+import {
+  type ColorScheme,
+  PARTICLE_COLOR_SCHEMES,
+  PERFORMANCE_PRESETS,
+  type PerformanceLevel,
+} from '../../../lib/particles'
 
 interface TrailEffectProps {
   /** Follow target x position */
-  targetX: number;
+  targetX: number
   /** Follow target y position */
-  targetY: number;
+  targetY: number
   /** Trail color scheme */
-  colorScheme?: ColorScheme;
+  colorScheme?: ColorScheme
   /** Custom colors override */
-  customColors?: string[];
+  customColors?: string[]
   /** Intensity multiplier */
-  intensity?: number;
+  intensity?: number
   /** Device performance level */
-  performanceLevel?: PerformanceLevel;
+  performanceLevel?: PerformanceLevel
   /** Trail width in pixels */
-  width?: number;
+  width?: number
   /** Trail height in pixels */
-  height?: number;
+  height?: number
   /** Enable the trail */
-  enabled?: boolean;
+  enabled?: boolean
 }
 
 /**
@@ -36,28 +41,28 @@ export function TrailEffect({
   performanceLevel = 'medium',
   width = 60,
   height = 80,
-  enabled = true
+  enabled = true,
 }: TrailEffectProps): JSX.Element | null {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const sparticlesRef = useRef<Sparticles | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null)
+  const sparticlesRef = useRef<Sparticles | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
   // Initialize sparticles
   useEffect(() => {
-    if (!containerRef.current || !enabled) return;
+    if (!containerRef.current || !enabled) return
 
-    const perf = PERFORMANCE_PRESETS[performanceLevel];
-    const colors = customColors || PARTICLE_COLOR_SCHEMES[colorScheme];
+    const perf = PERFORMANCE_PRESETS[performanceLevel]
+    const colors = customColors || PARTICLE_COLOR_SCHEMES[colorScheme]
 
-    const canvas = document.createElement('canvas');
-    canvas.style.position = 'absolute';
-    canvas.style.top = '0';
-    canvas.style.left = '0';
-    canvas.style.width = '100%';
-    canvas.style.height = '100%';
-    canvas.style.pointerEvents = 'none';
-    containerRef.current.appendChild(canvas);
-    canvasRef.current = canvas;
+    const canvas = document.createElement('canvas')
+    canvas.style.position = 'absolute'
+    canvas.style.top = '0'
+    canvas.style.left = '0'
+    canvas.style.width = '100%'
+    canvas.style.height = '100%'
+    canvas.style.pointerEvents = 'none'
+    containerRef.current.appendChild(canvas)
+    canvasRef.current = canvas
 
     try {
       sparticlesRef.current = new Sparticles(canvas, {
@@ -76,33 +81,33 @@ export function TrailEffect({
         bounce: false,
         alphaSpeed: 6,
         alphaVariance: 0.4,
-        style: 'fill'
-      });
+        style: 'fill',
+      })
     } catch (e) {
-      console.warn('Failed to create trail effect:', e);
+      console.warn('Failed to create trail effect:', e)
     }
 
     return () => {
       if (sparticlesRef.current) {
-        sparticlesRef.current.destroy();
-        sparticlesRef.current = null;
+        sparticlesRef.current.destroy()
+        sparticlesRef.current = null
       }
       if (canvasRef.current?.parentNode) {
-        canvasRef.current.remove();
-        canvasRef.current = null;
+        canvasRef.current.remove()
+        canvasRef.current = null
       }
-    };
-  }, [colorScheme, customColors, intensity, performanceLevel, enabled]);
+    }
+  }, [colorScheme, customColors, intensity, performanceLevel, enabled])
 
   // Update colors when scheme changes
   useEffect(() => {
     if (sparticlesRef.current) {
-      const colors = customColors || PARTICLE_COLOR_SCHEMES[colorScheme];
-      sparticlesRef.current.setOptions({ color: colors });
+      const colors = customColors || PARTICLE_COLOR_SCHEMES[colorScheme]
+      sparticlesRef.current.setOptions({ color: colors })
     }
-  }, [colorScheme, customColors]);
+  }, [colorScheme, customColors])
 
-  if (!enabled) return null;
+  if (!enabled) return null
 
   return (
     <div
@@ -114,10 +119,10 @@ export function TrailEffect({
         width,
         height,
         pointerEvents: 'none',
-        zIndex: 50
+        zIndex: 50,
       }}
     />
-  );
+  )
 }
 
-export default TrailEffect;
+export default TrailEffect

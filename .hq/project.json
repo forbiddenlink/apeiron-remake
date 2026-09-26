@@ -12,15 +12,8 @@
   "ownerContext": "personal",
   "source": "owned",
   "surface": "product",
-  "systems": [
-    "solo-control-tower"
-  ],
-  "tags": [
-    "biome",
-    "playwright",
-    "react",
-    "vitest"
-  ],
+  "systems": ["solo-control-tower"],
+  "tags": ["biome", "playwright", "react", "vitest"],
   "urls": {
     "repository": "https://github.com/forbiddenlink/apeiron-remake"
   }

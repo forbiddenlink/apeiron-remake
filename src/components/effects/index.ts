@@ -1,19 +1,19 @@
 // Particle effect components
-export { ExplosionEffect } from './ExplosionEffect';
-export { TrailEffect } from './TrailEffect';
-export { AmbientParticles } from './AmbientParticles';
-export { PowerupEffect } from './PowerupEffect';
 
 // Re-export types and utilities from lib
 export {
+  type ColorScheme,
+  createParticleOptions,
   PARTICLE_COLOR_SCHEMES,
   PARTICLE_PRESETS,
+  type ParticleConfig,
+  type ParticlePreset,
   PERFORMANCE_PRESETS,
-  createParticleOptions,
+  type PerformanceLevel,
   particleManager,
   SparticleManager,
-  type ColorScheme,
-  type PerformanceLevel,
-  type ParticlePreset,
-  type ParticleConfig
-} from '../../../lib/particles';
+} from '../../../lib/particles'
+export { AmbientParticles } from './AmbientParticles'
+export { ExplosionEffect } from './ExplosionEffect'
+export { PowerupEffect } from './PowerupEffect'
+export { TrailEffect } from './TrailEffect'

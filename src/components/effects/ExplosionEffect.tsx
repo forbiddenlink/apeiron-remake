@@ -1,21 +1,25 @@
-import { useEffect, useRef, type JSX } from 'react';
-import Sparticles from 'sparticles';
-import { PARTICLE_COLOR_SCHEMES, PERFORMANCE_PRESETS, type PerformanceLevel } from '../../../lib/particles';
+import { type JSX, useEffect, useRef } from 'react'
+import Sparticles from 'sparticles'
+import {
+  PARTICLE_COLOR_SCHEMES,
+  PERFORMANCE_PRESETS,
+  type PerformanceLevel,
+} from '../../../lib/particles'
 
 interface ExplosionEffectProps {
-  x: number;
-  y: number;
-  color?: string | string[];
-  size?: 'small' | 'medium' | 'large';
-  performanceLevel?: PerformanceLevel;
-  onComplete?: () => void;
+  x: number
+  y: number
+  color?: string | string[]
+  size?: 'small' | 'medium' | 'large'
+  performanceLevel?: PerformanceLevel
+  onComplete?: () => void
 }
 
 const SIZE_CONFIG = {
   small: { count: 20, maxSize: 4, duration: 400 },
   medium: { count: 40, maxSize: 6, duration: 600 },
-  large: { count: 80, maxSize: 10, duration: 800 }
-};
+  large: { count: 80, maxSize: 10, duration: 800 },
+}
 
 /**
  * Burst particle effect for impacts and explosions
@@ -27,26 +31,26 @@ export function ExplosionEffect({
   color = PARTICLE_COLOR_SCHEMES.fire,
   size = 'medium',
   performanceLevel = 'medium',
-  onComplete
+  onComplete,
 }: ExplosionEffectProps): JSX.Element | null {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const sparticlesRef = useRef<Sparticles | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null)
+  const sparticlesRef = useRef<Sparticles | null>(null)
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current) return
 
-    const config = SIZE_CONFIG[size];
-    const perf = PERFORMANCE_PRESETS[performanceLevel];
+    const config = SIZE_CONFIG[size]
+    const perf = PERFORMANCE_PRESETS[performanceLevel]
 
     // Create canvas
-    const canvas = document.createElement('canvas');
-    canvas.style.position = 'absolute';
-    canvas.style.top = '0';
-    canvas.style.left = '0';
-    canvas.style.width = '100%';
-    canvas.style.height = '100%';
-    canvas.style.pointerEvents = 'none';
-    containerRef.current.appendChild(canvas);
+    const canvas = document.createElement('canvas')
+    canvas.style.position = 'absolute'
+    canvas.style.top = '0'
+    canvas.style.left = '0'
+    canvas.style.width = '100%'
+    canvas.style.height = '100%'
+    canvas.style.pointerEvents = 'none'
+    containerRef.current.appendChild(canvas)
 
     try {
       sparticlesRef.current = new Sparticles(canvas, {
@@ -65,35 +69,35 @@ export function ExplosionEffect({
         bounce: false,
         alphaSpeed: 10,
         alphaVariance: 0.5,
-        style: 'fill'
-      });
+        style: 'fill',
+      })
     } catch (e) {
-      console.warn('Failed to create explosion effect:', e);
+      console.warn('Failed to create explosion effect:', e)
     }
 
     // Auto-destroy after duration
     const timer = setTimeout(() => {
       if (sparticlesRef.current) {
-        sparticlesRef.current.destroy();
-        sparticlesRef.current = null;
+        sparticlesRef.current.destroy()
+        sparticlesRef.current = null
       }
       if (canvas.parentNode) {
-        canvas.remove();
+        canvas.remove()
       }
-      onComplete?.();
-    }, config.duration);
+      onComplete?.()
+    }, config.duration)
 
     return () => {
-      clearTimeout(timer);
+      clearTimeout(timer)
       if (sparticlesRef.current) {
-        sparticlesRef.current.destroy();
-        sparticlesRef.current = null;
+        sparticlesRef.current.destroy()
+        sparticlesRef.current = null
       }
       if (canvas.parentNode) {
-        canvas.remove();
+        canvas.remove()
       }
-    };
-  }, [x, y, color, size, performanceLevel, onComplete]);
+    }
+  }, [x, y, color, size, performanceLevel, onComplete])
 
   return (
     <div
@@ -105,10 +109,10 @@ export function ExplosionEffect({
         width: 100,
         height: 100,
         pointerEvents: 'none',
-        zIndex: 100
+        zIndex: 100,
       }}
     />
-  );
+  )
 }
 
-export default ExplosionEffect;
+export default ExplosionEffect

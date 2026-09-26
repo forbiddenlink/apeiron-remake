@@ -1,28 +1,41 @@
-import { useEffect, useRef, type JSX } from 'react';
-import Sparticles from 'sparticles';
-import { PARTICLE_COLOR_SCHEMES, PERFORMANCE_PRESETS, type PerformanceLevel, type ColorScheme } from '../../../lib/particles';
+import { type JSX, useEffect, useRef } from 'react'
+import Sparticles from 'sparticles'
+import {
+  type ColorScheme,
+  PARTICLE_COLOR_SCHEMES,
+  PERFORMANCE_PRESETS,
+  type PerformanceLevel,
+} from '../../../lib/particles'
 
 interface PowerupEffectProps {
   /** X position of powerup */
-  x: number;
+  x: number
   /** Y position of powerup */
-  y: number;
+  y: number
   /** Powerup type determines color scheme */
-  type?: 'guided' | 'diamond' | 'machine_gun' | 'shield' | 'lock' | 'house_cleaning' | 'extra_man' | 'generic';
+  type?:
+    | 'guided'
+    | 'diamond'
+    | 'machine_gun'
+    | 'shield'
+    | 'lock'
+    | 'house_cleaning'
+    | 'extra_man'
+    | 'generic'
   /** Custom color scheme override */
-  colorScheme?: ColorScheme;
+  colorScheme?: ColorScheme
   /** Custom colors override */
-  customColors?: string[];
+  customColors?: string[]
   /** Effect intensity */
-  intensity?: number;
+  intensity?: number
   /** Device performance level */
-  performanceLevel?: PerformanceLevel;
+  performanceLevel?: PerformanceLevel
   /** Whether collection burst is active */
-  collected?: boolean;
+  collected?: boolean
   /** Callback when collection animation completes */
-  onCollectionComplete?: () => void;
+  onCollectionComplete?: () => void
   /** Enable the effect */
-  enabled?: boolean;
+  enabled?: boolean
 }
 
 // Powerup type to color mapping
@@ -34,8 +47,8 @@ const POWERUP_COLORS: Record<string, string[]> = {
   lock: ['#ff4081', '#ff80ab', '#fce4ec', '#ffffff'],
   house_cleaning: ['#8bc34a', '#aed581', '#c5e1a5', '#ffffff'],
   extra_man: ['#ffffff', '#e3f2fd', '#bbdefb', '#90caf9'],
-  generic: ['#ffd700', '#ffeb3b', '#ffffff', '#fff59d']
-};
+  generic: ['#ffd700', '#ffeb3b', '#ffffff', '#fff59d'],
+}
 
 /**
  * Powerup collection particle effect
@@ -51,37 +64,37 @@ export function PowerupEffect({
   performanceLevel = 'medium',
   collected = false,
   onCollectionComplete,
-  enabled = true
+  enabled = true,
 }: PowerupEffectProps): JSX.Element | null {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const sparticlesRef = useRef<Sparticles | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const burstRef = useRef<Sparticles | null>(null);
-  const burstCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null)
+  const sparticlesRef = useRef<Sparticles | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const burstRef = useRef<Sparticles | null>(null)
+  const burstCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
   // Get colors for this powerup type
   const getColors = (): string[] => {
-    if (customColors) return customColors;
-    if (colorScheme) return PARTICLE_COLOR_SCHEMES[colorScheme];
-    return POWERUP_COLORS[type] || POWERUP_COLORS.generic;
-  };
+    if (customColors) return customColors
+    if (colorScheme) return PARTICLE_COLOR_SCHEMES[colorScheme]
+    return POWERUP_COLORS[type] || POWERUP_COLORS.generic
+  }
 
   // Initialize ambient sparkle effect
   useEffect(() => {
-    if (!containerRef.current || !enabled || collected) return;
+    if (!containerRef.current || !enabled || collected) return
 
-    const perf = PERFORMANCE_PRESETS[performanceLevel];
-    const colors = getColors();
+    const perf = PERFORMANCE_PRESETS[performanceLevel]
+    const colors = getColors()
 
-    const canvas = document.createElement('canvas');
-    canvas.style.position = 'absolute';
-    canvas.style.top = '0';
-    canvas.style.left = '0';
-    canvas.style.width = '100%';
-    canvas.style.height = '100%';
-    canvas.style.pointerEvents = 'none';
-    containerRef.current.appendChild(canvas);
-    canvasRef.current = canvas;
+    const canvas = document.createElement('canvas')
+    canvas.style.position = 'absolute'
+    canvas.style.top = '0'
+    canvas.style.left = '0'
+    canvas.style.width = '100%'
+    canvas.style.height = '100%'
+    canvas.style.pointerEvents = 'none'
+    containerRef.current.appendChild(canvas)
+    canvasRef.current = canvas
 
     try {
       sparticlesRef.current = new Sparticles(canvas, {
@@ -100,51 +113,51 @@ export function PowerupEffect({
         bounce: false,
         alphaSpeed: 8,
         alphaVariance: 0.6,
-        style: 'fill'
-      });
+        style: 'fill',
+      })
     } catch (e) {
-      console.warn('Failed to create powerup effect:', e);
+      console.warn('Failed to create powerup effect:', e)
     }
 
     return () => {
       if (sparticlesRef.current) {
-        sparticlesRef.current.destroy();
-        sparticlesRef.current = null;
+        sparticlesRef.current.destroy()
+        sparticlesRef.current = null
       }
       if (canvasRef.current?.parentNode) {
-        canvasRef.current.remove();
-        canvasRef.current = null;
+        canvasRef.current.remove()
+        canvasRef.current = null
       }
-    };
-  }, [type, colorScheme, customColors, intensity, performanceLevel, enabled, collected]);
+    }
+  }, [type, colorScheme, customColors, intensity, performanceLevel, enabled, collected])
 
   // Handle collection burst
   useEffect(() => {
-    if (!containerRef.current || !collected || !enabled) return;
+    if (!containerRef.current || !collected || !enabled) return
 
     // Destroy ambient effect
     if (sparticlesRef.current) {
-      sparticlesRef.current.destroy();
-      sparticlesRef.current = null;
+      sparticlesRef.current.destroy()
+      sparticlesRef.current = null
     }
     if (canvasRef.current?.parentNode) {
-      canvasRef.current.remove();
-      canvasRef.current = null;
+      canvasRef.current.remove()
+      canvasRef.current = null
     }
 
-    const perf = PERFORMANCE_PRESETS[performanceLevel];
-    const colors = getColors();
+    const perf = PERFORMANCE_PRESETS[performanceLevel]
+    const colors = getColors()
 
     // Create burst canvas
-    const burstCanvas = document.createElement('canvas');
-    burstCanvas.style.position = 'absolute';
-    burstCanvas.style.top = '0';
-    burstCanvas.style.left = '0';
-    burstCanvas.style.width = '100%';
-    burstCanvas.style.height = '100%';
-    burstCanvas.style.pointerEvents = 'none';
-    containerRef.current.appendChild(burstCanvas);
-    burstCanvasRef.current = burstCanvas;
+    const burstCanvas = document.createElement('canvas')
+    burstCanvas.style.position = 'absolute'
+    burstCanvas.style.top = '0'
+    burstCanvas.style.left = '0'
+    burstCanvas.style.width = '100%'
+    burstCanvas.style.height = '100%'
+    burstCanvas.style.pointerEvents = 'none'
+    containerRef.current.appendChild(burstCanvas)
+    burstCanvasRef.current = burstCanvas
 
     try {
       burstRef.current = new Sparticles(burstCanvas, {
@@ -163,41 +176,50 @@ export function PowerupEffect({
         bounce: false,
         alphaSpeed: 12,
         alphaVariance: 0.3,
-        style: 'fill'
-      });
+        style: 'fill',
+      })
     } catch (e) {
-      console.warn('Failed to create powerup collection burst:', e);
+      console.warn('Failed to create powerup collection burst:', e)
     }
 
     // Auto-cleanup burst after animation
     const timer = setTimeout(() => {
       if (burstRef.current) {
-        burstRef.current.destroy();
-        burstRef.current = null;
+        burstRef.current.destroy()
+        burstRef.current = null
       }
       if (burstCanvasRef.current?.parentNode) {
-        burstCanvasRef.current.remove();
-        burstCanvasRef.current = null;
+        burstCanvasRef.current.remove()
+        burstCanvasRef.current = null
       }
-      onCollectionComplete?.();
-    }, 600);
+      onCollectionComplete?.()
+    }, 600)
 
     return () => {
-      clearTimeout(timer);
+      clearTimeout(timer)
       if (burstRef.current) {
-        burstRef.current.destroy();
-        burstRef.current = null;
+        burstRef.current.destroy()
+        burstRef.current = null
       }
       if (burstCanvasRef.current?.parentNode) {
-        burstCanvasRef.current.remove();
-        burstCanvasRef.current = null;
+        burstCanvasRef.current.remove()
+        burstCanvasRef.current = null
       }
-    };
-  }, [collected, type, colorScheme, customColors, intensity, performanceLevel, enabled, onCollectionComplete]);
+    }
+  }, [
+    collected,
+    type,
+    colorScheme,
+    customColors,
+    intensity,
+    performanceLevel,
+    enabled,
+    onCollectionComplete,
+  ])
 
-  if (!enabled) return null;
+  if (!enabled) return null
 
-  const size = collected ? 120 : 60;
+  const size = collected ? 120 : 60
 
   return (
     <div
@@ -209,10 +231,10 @@ export function PowerupEffect({
         width: size,
         height: size,
         pointerEvents: 'none',
-        zIndex: 80
+        zIndex: 80,
       }}
     />
-  );
+  )
 }
 
-export default PowerupEffect;
+export default PowerupEffect

@@ -1,57 +1,63 @@
-import React, { useEffect, useRef } from 'react';
-import { Engine } from '../game/Engine';
-import { GameSettings } from './Options';
-import { sparticleEffects } from '../game/SparticleEffects';
+import React, { useEffect, useRef } from 'react'
+import { Engine } from '../game/Engine'
+import { sparticleEffects } from '../game/SparticleEffects'
+import type { GameSettings } from './Options'
 
 interface ApeironCanvasProps {
-  width: number;
-  height: number;
+  width: number
+  height: number
   gameState: {
-    mode: 'title' | 'playing' | 'pause' | 'gameover';
-    score: number;
-    highScore: number;
-    level: number;
-  };
-  onGameStateUpdate: (state: ApeironCanvasProps['gameState']) => void;
-  settings: GameSettings;
+    mode: 'title' | 'playing' | 'pause' | 'gameover'
+    score: number
+    highScore: number
+    level: number
+  }
+  onGameStateUpdate: (state: ApeironCanvasProps['gameState']) => void
+  settings: GameSettings
 }
 
-export function ApeironCanvas({ width, height, gameState, onGameStateUpdate, settings }: ApeironCanvasProps) {
-  const containerRef = useRef<HTMLDivElement|null>(null);
-  const ref = useRef<HTMLCanvasElement|null>(null);
-  const engineRef = useRef<Engine|null>(null);
-  
+export function ApeironCanvas({
+  width,
+  height,
+  gameState,
+  onGameStateUpdate,
+  settings,
+}: ApeironCanvasProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const ref = useRef<HTMLCanvasElement | null>(null)
+  const engineRef = useRef<Engine | null>(null)
+
   // Initialize Sparticle background effects
   useEffect(() => {
-    if (!containerRef.current) return;
-    sparticleEffects.attach(containerRef.current);
-    sparticleEffects.setIntensity(settings.particleDensity);
-    sparticleEffects.setEnabled(settings.gameMode !== 'classic');
+    if (!containerRef.current) return
+    sparticleEffects.attach(containerRef.current)
+    sparticleEffects.setIntensity(settings.particleDensity)
+    sparticleEffects.setEnabled(settings.gameMode !== 'classic')
 
-    return () => sparticleEffects.detach();
-  }, []);
+    return () => sparticleEffects.detach()
+  }, [])
 
   // Update sparticle settings when they change
   useEffect(() => {
-    sparticleEffects.setIntensity(settings.particleDensity);
-    sparticleEffects.setEnabled(settings.gameMode !== 'classic');
-  }, [settings.particleDensity, settings.gameMode]);
+    sparticleEffects.setIntensity(settings.particleDensity)
+    sparticleEffects.setEnabled(settings.gameMode !== 'classic')
+  }, [settings.particleDensity, settings.gameMode])
 
   // Update sparticle theme based on level
   useEffect(() => {
-    sparticleEffects.setThemeFromWave(gameState.level);
-  }, [gameState.level]);
+    sparticleEffects.setThemeFromWave(gameState.level)
+  }, [gameState.level])
 
   // Initialize engine
   useEffect(() => {
-    if (!ref.current) return;
-    const engine = new Engine(ref.current, width, height);
-    engineRef.current = engine;
+    if (!ref.current) return
+    const engine = new Engine(ref.current, width, height)
+    engineRef.current = engine
     // Test seam: headless visual-regression / playtest harness drives the
     // engine directly (see tools/). No-op in normal runs unless the harness
     // set window.__APEIRON_TEST__ via addInitScript before boot.
     if ((window as unknown as { __APEIRON_TEST__?: boolean }).__APEIRON_TEST__) {
-      (window as unknown as { __apeironEngine?: Engine }).__apeironEngine = engine;
+      ;(window as unknown as { __apeironEngine?: Engine }).__apeironEngine = engine
     }
 
     // Set up game state sync
@@ -60,43 +66,43 @@ export function ApeironCanvas({ width, height, gameState, onGameStateUpdate, set
         mode: state.mode,
         score: state.score,
         highScore: state.highScore,
-        level: state.level
-      });
-    };
+        level: state.level,
+      })
+    }
     onGameStateUpdate({
       mode: engine.mode,
       score: engine.score,
       highScore: engine.highScore,
-      level: engine.level
-    });
+      level: engine.level,
+    })
 
     // Start engine
-    engine.start();
-    return () => engine.destroy();
-  }, [width, height]);
-  
+    engine.start()
+    return () => engine.destroy()
+  }, [width, height])
+
   // Handle game state changes
   useEffect(() => {
-    if (!engineRef.current) return;
-    
+    if (!engineRef.current) return
+
     // Update engine mode
     if (gameState.mode === 'playing') {
       if (engineRef.current.mode === 'title' || engineRef.current.mode === 'gameover') {
-        engineRef.current.startNewGame();
+        engineRef.current.startNewGame()
       } else if (engineRef.current.mode === 'pause') {
-        engineRef.current.resume();
+        engineRef.current.resume()
       }
     } else if (gameState.mode === 'pause' && engineRef.current.mode === 'playing') {
-      engineRef.current.pause();
+      engineRef.current.pause()
     }
-  }, [gameState.mode]);
-  
+  }, [gameState.mode])
+
   // Handle settings changes
   useEffect(() => {
-    if (!engineRef.current) return;
-    engineRef.current.updateSettings(settings);
-  }, [settings]);
-  
+    if (!engineRef.current) return
+    engineRef.current.updateSettings(settings)
+  }, [settings])
+
   return (
     <div
       ref={containerRef}
@@ -104,7 +110,7 @@ export function ApeironCanvas({ width, height, gameState, onGameStateUpdate, set
         position: 'relative',
         width,
         height,
-        overflow: 'hidden'
+        overflow: 'hidden',
       }}
     >
       <canvas
@@ -116,9 +122,9 @@ export function ApeironCanvas({ width, height, gameState, onGameStateUpdate, set
           border: 'none',
           boxShadow: 'none',
           position: 'relative',
-          zIndex: 1
+          zIndex: 1,
         }}
       />
     </div>
-  );
+  )
 }

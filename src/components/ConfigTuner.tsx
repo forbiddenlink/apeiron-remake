@@ -1,27 +1,27 @@
-import React, { useState } from 'react';
-import { GRID, PLAYER, ENEMIES, YUMMIES, SCORING } from '../game/GameConfig';
+import React, { useState } from 'react'
+import { ENEMIES, GRID, PLAYER, SCORING, YUMMIES } from '../game/GameConfig'
 
 interface ConfigGroup {
-  name: string;
+  name: string
   configs: {
-    key: string;
-    value: any;
-    type: 'number' | 'boolean' | 'string';
-    description: string;
-    min?: number;
-    max?: number;
-    step?: number;
-  }[];
+    key: string
+    value: any
+    type: 'number' | 'boolean' | 'string'
+    description: string
+    min?: number
+    max?: number
+    step?: number
+  }[]
 }
 
 interface ConfigTunerProps {
-  onConfigChange: (key: string, value: any) => void;
-  onReset: () => void;
+  onConfigChange: (key: string, value: any) => void
+  onReset: () => void
 }
 
 export function ConfigTuner({ onConfigChange, onReset }: ConfigTunerProps) {
-  const [activeGroup, setActiveGroup] = useState<string>('PLAYER');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [activeGroup, setActiveGroup] = useState<string>('PLAYER')
+  const [searchTerm, setSearchTerm] = useState('')
 
   const configGroups: ConfigGroup[] = [
     {
@@ -34,7 +34,7 @@ export function ConfigTuner({ onConfigChange, onReset }: ConfigTunerProps) {
           description: 'Base movement speed (px/sec)',
           min: 100,
           max: 1000,
-          step: 10
+          step: 10,
         },
         {
           key: 'PLAYER.MOVEMENT.ACCEL',
@@ -43,7 +43,7 @@ export function ConfigTuner({ onConfigChange, onReset }: ConfigTunerProps) {
           description: 'Acceleration (px/sec²)',
           min: 500,
           max: 5000,
-          step: 100
+          step: 100,
         },
         {
           key: 'PLAYER.MOVEMENT.VERTICAL_MULT',
@@ -52,9 +52,9 @@ export function ConfigTuner({ onConfigChange, onReset }: ConfigTunerProps) {
           description: 'Vertical movement multiplier',
           min: 0.1,
           max: 2.0,
-          step: 0.05
-        }
-      ]
+          step: 0.05,
+        },
+      ],
     },
     {
       name: 'ENEMIES',
@@ -66,7 +66,7 @@ export function ConfigTuner({ onConfigChange, onReset }: ConfigTunerProps) {
           description: 'Larry (Spider) speed',
           min: 50,
           max: 500,
-          step: 10
+          step: 10,
         },
         {
           key: 'ENEMIES.GROUCHO_THE_FLICK.MUSHROOM_DROP_CHANCE',
@@ -75,7 +75,7 @@ export function ConfigTuner({ onConfigChange, onReset }: ConfigTunerProps) {
           description: 'Groucho (Flea) mushroom drop chance',
           min: 0,
           max: 1,
-          step: 0.01
+          step: 0.01,
         },
         {
           key: 'ENEMIES.UFO.SPAWN_CHANCE',
@@ -84,9 +84,9 @@ export function ConfigTuner({ onConfigChange, onReset }: ConfigTunerProps) {
           description: 'UFO spawn chance',
           min: 0,
           max: 1,
-          step: 0.01
-        }
-      ]
+          step: 0.01,
+        },
+      ],
     },
     {
       name: 'YUMMIES',
@@ -98,7 +98,7 @@ export function ConfigTuner({ onConfigChange, onReset }: ConfigTunerProps) {
           description: 'Machine Gun duration (sec)',
           min: 1,
           max: 30,
-          step: 0.5
+          step: 0.5,
         },
         {
           key: 'YUMMIES.DURATIONS.SHIELD',
@@ -107,7 +107,7 @@ export function ConfigTuner({ onConfigChange, onReset }: ConfigTunerProps) {
           description: 'Shield duration (sec)',
           min: 1,
           max: 30,
-          step: 0.5
+          step: 0.5,
         },
         {
           key: 'YUMMIES.SPAWN.CHANCE',
@@ -116,9 +116,9 @@ export function ConfigTuner({ onConfigChange, onReset }: ConfigTunerProps) {
           description: 'Yummy spawn chance',
           min: 0,
           max: 1,
-          step: 0.01
-        }
-      ]
+          step: 0.01,
+        },
+      ],
     },
     {
       name: 'SCORING',
@@ -130,7 +130,7 @@ export function ConfigTuner({ onConfigChange, onReset }: ConfigTunerProps) {
           description: 'Chain timeout (sec)',
           min: 0.2,
           max: 5,
-          step: 0.1
+          step: 0.1,
         },
         {
           key: 'SCORING.COMBO_WINDOW',
@@ -139,64 +139,72 @@ export function ConfigTuner({ onConfigChange, onReset }: ConfigTunerProps) {
           description: 'Combo window (sec)',
           min: 0.1,
           max: 5,
-          step: 0.1
-        }
-      ]
-    }
-  ];
+          step: 0.1,
+        },
+      ],
+    },
+  ]
 
-  const filteredGroups = configGroups.map(group => ({
-    ...group,
-    configs: group.configs.filter(config =>
-      config.key.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      config.description.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  })).filter(group => group.configs.length > 0);
+  const filteredGroups = configGroups
+    .map((group) => ({
+      ...group,
+      configs: group.configs.filter(
+        (config) =>
+          config.key.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          config.description.toLowerCase().includes(searchTerm.toLowerCase())
+      ),
+    }))
+    .filter((group) => group.configs.length > 0)
 
   return (
-    <div className="config-tuner" style={{
-      position: 'fixed',
-      top: '20px',
-      right: '20px',
-      width: '300px',
-      maxHeight: '80vh',
-      backgroundColor: 'rgba(0, 0, 0, 0.85)',
-      color: '#fff',
-      padding: '15px',
-      borderRadius: '8px',
-      fontFamily: 'ui-monospace, Menlo, monospace',
-      fontSize: '12px',
-      overflowY: 'auto'
-    }}>
+    <div
+      className="config-tuner"
+      style={{
+        position: 'fixed',
+        top: '20px',
+        right: '20px',
+        width: '300px',
+        maxHeight: '80vh',
+        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+        color: '#fff',
+        padding: '15px',
+        borderRadius: '8px',
+        fontFamily: 'ui-monospace, Menlo, monospace',
+        fontSize: '12px',
+        overflowY: 'auto',
+      }}
+    >
       <div style={{ marginBottom: '15px' }}>
         <input
           type="text"
           placeholder="Search configs..."
           value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
+          onChange={(e) => setSearchTerm(e.target.value)}
           style={{
             width: '100%',
             padding: '5px',
             backgroundColor: 'rgba(255, 255, 255, 0.1)',
             border: '1px solid rgba(255, 255, 255, 0.2)',
             color: '#fff',
-            borderRadius: '4px'
+            borderRadius: '4px',
           }}
         />
       </div>
 
       <div style={{ marginBottom: '15px', display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-        {configGroups.map(group => (
+        {configGroups.map((group) => (
           <button
+            type="button"
             key={group.name}
             onClick={() => setActiveGroup(group.name)}
             style={{
               padding: '5px 10px',
-              backgroundColor: activeGroup === group.name ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
+              backgroundColor:
+                activeGroup === group.name ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
               border: '1px solid rgba(255, 255, 255, 0.2)',
               color: '#fff',
               borderRadius: '4px',
-              cursor: 'pointer'
+              cursor: 'pointer',
             }}
           >
             {group.name}
@@ -204,20 +212,18 @@ export function ConfigTuner({ onConfigChange, onReset }: ConfigTunerProps) {
         ))}
       </div>
 
-      {filteredGroups.map(group => (
+      {filteredGroups.map((group) => (
         <div
           key={group.name}
           style={{
             display: searchTerm || activeGroup === group.name ? 'block' : 'none',
-            marginBottom: '20px'
+            marginBottom: '20px',
           }}
         >
           <h3 style={{ margin: '0 0 10px 0', color: '#64ffda' }}>{group.name}</h3>
-          {group.configs.map(config => (
+          {group.configs.map((config) => (
             <div key={config.key} style={{ marginBottom: '15px' }}>
-              <div style={{ marginBottom: '5px', color: '#b388ff' }}>
-                {config.description}
-              </div>
+              <div style={{ marginBottom: '5px', color: '#b388ff' }}>{config.description}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 {config.type === 'number' ? (
                   <>
@@ -227,7 +233,7 @@ export function ConfigTuner({ onConfigChange, onReset }: ConfigTunerProps) {
                       max={config.max}
                       step={config.step}
                       value={config.value}
-                      onChange={e => onConfigChange(config.key, parseFloat(e.target.value))}
+                      onChange={(e) => onConfigChange(config.key, parseFloat(e.target.value))}
                       style={{ flex: 1 }}
                     />
                     <input
@@ -236,14 +242,14 @@ export function ConfigTuner({ onConfigChange, onReset }: ConfigTunerProps) {
                       max={config.max}
                       step={config.step}
                       value={config.value}
-                      onChange={e => onConfigChange(config.key, parseFloat(e.target.value))}
+                      onChange={(e) => onConfigChange(config.key, parseFloat(e.target.value))}
                       style={{
                         width: '80px',
                         padding: '2px 5px',
                         backgroundColor: 'rgba(255, 255, 255, 0.1)',
                         border: '1px solid rgba(255, 255, 255, 0.2)',
                         color: '#fff',
-                        borderRadius: '4px'
+                        borderRadius: '4px',
                       }}
                     />
                   </>
@@ -251,20 +257,20 @@ export function ConfigTuner({ onConfigChange, onReset }: ConfigTunerProps) {
                   <input
                     type="checkbox"
                     checked={config.value}
-                    onChange={e => onConfigChange(config.key, e.target.checked)}
+                    onChange={(e) => onConfigChange(config.key, e.target.checked)}
                   />
                 ) : (
                   <input
                     type="text"
                     value={config.value}
-                    onChange={e => onConfigChange(config.key, e.target.value)}
+                    onChange={(e) => onConfigChange(config.key, e.target.value)}
                     style={{
                       width: '100%',
                       padding: '2px 5px',
                       backgroundColor: 'rgba(255, 255, 255, 0.1)',
                       border: '1px solid rgba(255, 255, 255, 0.2)',
                       color: '#fff',
-                      borderRadius: '4px'
+                      borderRadius: '4px',
                     }}
                   />
                 )}
@@ -275,6 +281,7 @@ export function ConfigTuner({ onConfigChange, onReset }: ConfigTunerProps) {
       ))}
 
       <button
+        type="button"
         onClick={onReset}
         style={{
           width: '100%',
@@ -284,11 +291,11 @@ export function ConfigTuner({ onConfigChange, onReset }: ConfigTunerProps) {
           color: '#ff5252',
           borderRadius: '4px',
           cursor: 'pointer',
-          marginTop: '10px'
+          marginTop: '10px',
         }}
       >
         Reset All to Default
       </button>
     </div>
-  );
+  )
 }
