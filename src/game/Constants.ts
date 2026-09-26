@@ -112,6 +112,17 @@ export const REFLECTED_BULLET = {
 } as const
 
 // Psychedelic mushroom settings
+// Classic Bonus: a per-wave countdown banked into Score when the wave is
+// cleared. Read off original 1995 footage (youtube.com/watch?v=irQzOwsLlok):
+// ~1960 at 0:01.6 of wave 1 and 1970 just after wave 2 starts, falling in
+// steps of 10 at roughly 25-30 points per second. STEP_SECONDS is the
+// calibrated rate; the start value and step are read directly off the sidebar.
+export const CLASSIC_BONUS = {
+  START: 2000,
+  STEP: 10,
+  STEP_SECONDS: 0.36,
+} as const
+
 export const PSYCHEDELIC = {
   // Spawn rate and first wave are remake calibration, not documented facts.
   SPAWN_CHANCE: 0.02,
@@ -149,9 +160,11 @@ export const POWERUPS = {
   LOCK_DURATION: 12.0,
   HOUSE_CLEANING_DURATION: 0.0, // instant effect
   EXTRA_MAN_DURATION: 0.0, // instant effect
-  // The guide confirms a Multiplier Yummy but not its factor; 2× is remake
-  // calibration and applies only to the tracked Bonus total.
-  BONUS_MULTIPLIER: 2,
+  // The FAQ says the Multiplier "will multiply your bonus score" without a
+  // factor. Original 1995 footage shows 3x on three separate pickups
+  // (youtube.com/watch?v=irQzOwsLlok: 1250->3750, 1410->4230, 1450->4350;
+  // the first checked frame by frame).
+  BONUS_MULTIPLIER: 3,
 
   // Power-up effects
   MACHINE_GUN_RATE: 0.05, // seconds between shots

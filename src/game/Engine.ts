@@ -1,7 +1,7 @@
 import { sfx } from './AudioSynth'
 import { BackgroundEffects } from './BackgroundEffects'
 import { Centipede } from './Centipede'
-import { WEAPONS } from './Constants'
+import { CLASSIC_BONUS, WEAPONS } from './Constants'
 import { Flea, Gecko, getScobsterDistance, getScobsterScore, Spider } from './Enemies'
 import {
   COINS,
@@ -60,14 +60,33 @@ const PLAYER_ROWS = GRID.PLAYER_ROWS
 const FIELD_W = COLS * CELL
 export const MAX_BONUS_SCORE = 99999
 
+// paysScore: Enhanced credits the increase to Score immediately. Classic only
+// multiplies the Bonus countdown, which is banked into Score at wave end.
 export function getBonusMultiplierAward(
   bonus: number,
-  scoreMultiplier = 1
+  scoreMultiplier = 1,
+  paysScore = true
 ): { bonus: number; score: number } {
   const cappedBonus = Math.min(MAX_BONUS_SCORE, Math.max(0, bonus))
   const multipliedBonus = Math.min(MAX_BONUS_SCORE, cappedBonus * POWERUPS.BONUS_MULTIPLIER)
   const increase = multipliedBonus - cappedBonus
-  return { bonus: multipliedBonus, score: increase * scoreMultiplier }
+  return { bonus: multipliedBonus, score: paysScore ? increase * scoreMultiplier : 0 }
+}
+
+// Advances the Classic Bonus countdown by dt. carry holds time not yet spent
+// on a whole step, so the rate is exact on the fixed 1/60 timestep.
+export function tickClassicBonus(
+  bonus: number,
+  carry: number,
+  dt: number
+): { bonus: number; carry: number } {
+  let nextBonus = bonus
+  let nextCarry = carry + dt
+  while (nextCarry >= CLASSIC_BONUS.STEP_SECONDS - 1e-9) {
+    nextCarry -= CLASSIC_BONUS.STEP_SECONDS
+    nextBonus = Math.max(0, nextBonus - CLASSIC_BONUS.STEP)
+  }
+  return { bonus: nextBonus, carry: Math.max(0, nextCarry) }
 }
 
 type EngineSettings = {
@@ -158,6 +177,7 @@ export class Engine {
   private hitsTaken = 0
   private fleaMultiplier = 1
   private sidebarBonus = 0
+  private bonusCarry = 0
 
   private spiderTimer = randRange(
     ENEMIES.LARRY_THE_SCOBSTER.SPAWN_MIN_TIME,
@@ -285,11 +305,22 @@ export class Engine {
     if (this.levelClearT > 0) {
       this.levelClearT -= dt
       if (this.levelClearT <= 0) {
+        if (!usesModernScoring(this.settings.gameMode)) {
+          // Classic banks whatever is left of the Bonus countdown.
+          this.recordScore(this.sidebarBonus)
+          this.sidebarBonus = 0
+        }
         this.awardLevelBonuses()
         this.level++
         this.startLevel()
       }
       return
+    }
+
+    if (!usesModernScoring(this.settings.gameMode)) {
+      const next = tickClassicBonus(this.sidebarBonus, this.bonusCarry, dt)
+      this.sidebarBonus = next.bonus
+      this.bonusCarry = next.carry
     }
 
     // Update scoring mechanics
@@ -490,11 +521,15 @@ export class Engine {
         } else if (p.type === 'multiplier') {
           // This is a bonus award, not an enemy score: Enhanced level/combo
           // multipliers do not alter the visible Bonus multiplication.
-          const award = getBonusMultiplierAward(this.sidebarBonus, this.psychedelicMultiplier)
+          const award = getBonusMultiplierAward(
+            this.sidebarBonus,
+            this.psychedelicMultiplier,
+            usesModernScoring(this.settings.gameMode)
+          )
           this.sidebarBonus = award.bonus
           this.recordScore(award.score)
           popupText =
-            award.score > 0 ? `YUMMY! BONUS ×${POWERUPS.BONUS_MULTIPLIER}` : 'YUMMY! NO BONUS YET'
+            award.bonus > 0 ? `YUMMY! BONUS ×${POWERUPS.BONUS_MULTIPLIER}` : 'YUMMY! NO BONUS YET'
           sfx.extra()
         } else {
           this.player.addPowerUp(p.type)
@@ -1246,7 +1281,7 @@ export class Engine {
     }
 
     finalPoints = Math.round(finalPoints)
-    if (type !== 'normal') {
+    if (type !== 'normal' && usesModernScoring(this.settings.gameMode)) {
       this.sidebarBonus = Math.min(MAX_BONUS_SCORE, this.sidebarBonus + finalPoints)
     }
 
@@ -1339,7 +1374,8 @@ export class Engine {
 
   private startLevel() {
     const tuning = getLevelTuning(this.level, this.settings.gameMode)
-    this.sidebarBonus = 0
+    this.sidebarBonus = usesModernScoring(this.settings.gameMode) ? 0 : CLASSIC_BONUS.START
+    this.bonusCarry = 0
 
     // Update background theme based on wave (changes every 4 waves like original)
     this.backgroundEffects.setWave(this.level)
