@@ -171,7 +171,7 @@ export class Engine {
   private comboTimer = 0
   private chainHits = 0
   private chainTimer = 0
-  private levelStartTime = 0
+  private levelElapsed = 0 // fixed-step seconds in the current wave
   private initialMushrooms = 0
   private mushroomsLost = 0
   private hitsTaken = 0
@@ -316,6 +316,8 @@ export class Engine {
       }
       return
     }
+
+    this.levelElapsed += dt
 
     if (!usesModernScoring(this.settings.gameMode)) {
       const next = tickClassicBonus(this.sidebarBonus, this.bonusCarry, dt)
@@ -1344,8 +1346,7 @@ export class Engine {
       bonusText += 'PERFECT FIELD '
     }
 
-    const levelTime = (performance.now() - this.levelStartTime) / 1000
-    if (levelTime < this.getParTime()) {
+    if (this.levelElapsed < this.getParTime()) {
       totalBonus += SCORE.SPEED_CLEAR
       bonusText += 'SPEED CLEAR '
     }
@@ -1385,7 +1386,7 @@ export class Engine {
     this.comboTimer = 0
     this.chainHits = 0
     this.chainTimer = 0
-    this.levelStartTime = performance.now()
+    this.levelElapsed = 0
     this.hitsTaken = 0
 
     // Setup mushroom field
