@@ -2,7 +2,7 @@ import { sfx } from './AudioSynth'
 import { BackgroundEffects } from './BackgroundEffects'
 import { Centipede } from './Centipede'
 import { WEAPONS } from './Constants'
-import { Flea, getScobsterDistance, getScobsterScore, Scorpion, Spider } from './Enemies'
+import { Flea, Gecko, getScobsterDistance, getScobsterScore, Spider } from './Enemies'
 import {
   COINS,
   DEBUG,
@@ -40,10 +40,10 @@ import { PowerUp } from './PowerUp'
 import {
   drawBullet,
   drawFlea,
+  drawGecko,
   drawMushroom,
   drawMuzzleFlash,
   drawPlayer,
-  drawScorpion,
   drawSegment,
   drawSpider,
   drawUFO,
@@ -121,7 +121,7 @@ export class Engine {
   centipedes: Centipede[] = []
   spiders: Spider[] = []
   fleas: Flea[] = []
-  scorpions: Scorpion[] = []
+  geckos: Gecko[] = []
   ufos: UFO[] = []
   powerUps: PowerUp[] = []
   fallingMushrooms: {
@@ -165,7 +165,7 @@ export class Engine {
     this.rand
   )
   private fleaCd: number = ENEMIES.GROUCHO_THE_FLICK.SPAWN_COOLDOWN
-  private scorpionTimer = randRange(
+  private geckoTimer = randRange(
     ENEMIES.GORDON_THE_GECKO.SPAWN_MIN_TIME,
     ENEMIES.GORDON_THE_GECKO.SPAWN_MAX_TIME,
     this.rand
@@ -442,8 +442,8 @@ export class Engine {
       }
     }
 
-    // Update scorpions
-    for (const sc of this.scorpions) {
+    // Update geckos
+    for (const sc of this.geckos) {
       sc.update(dt)
     }
 
@@ -545,11 +545,11 @@ export class Engine {
           : Math.max(1.1, ENEMIES.GROUCHO_THE_FLICK.SPAWN_COOLDOWN * 0.82)
     }
 
-    // Gordon the Gecko (Scorpion)
-    this.scorpionTimer -= dt
-    if (this.scorpionTimer <= 0) {
-      this.scorpions.push(new Scorpion(this.rand))
-      this.scorpionTimer = randRange(modeTuning.scorpionMin, modeTuning.scorpionMax, this.rand)
+    // Gordon the Gecko
+    this.geckoTimer -= dt
+    if (this.geckoTimer <= 0) {
+      this.geckos.push(new Gecko(this.rand))
+      this.geckoTimer = randRange(modeTuning.geckoMin, modeTuning.geckoMax, this.rand)
     }
 
     // UFO
@@ -597,7 +597,7 @@ export class Engine {
     }
 
     // Gordon the Gecko poisons mushrooms it touches
-    for (const sc of this.scorpions) {
+    for (const sc of this.geckos) {
       const c = Math.floor(sc.x / GRID.CELL)
       const r = Math.floor(sc.y / GRID.CELL)
       const m = this.grid.get(c, r)
@@ -650,8 +650,8 @@ export class Engine {
         }
       }
 
-      // Gordon the Gecko (Scorpion)
-      for (const sc of this.scorpions) {
+      // Gordon the Gecko
+      for (const sc of this.geckos) {
         if (!sc.dead && aabb(pr, sc.rect())) {
           this.loseLife()
           return
@@ -670,7 +670,7 @@ export class Engine {
     // cleanup
     this.spiders = this.spiders.filter((s) => !s.dead)
     this.fleas = this.fleas.filter((s) => !s.dead)
-    this.scorpions = this.scorpions.filter((s) => !s.dead)
+    this.geckos = this.geckos.filter((s) => !s.dead)
     this.ufos = this.ufos.filter((u) => !u.dead)
     if (this.fleas.length <= 1) this.fleaMultiplier = 1
     this.powerUps = this.powerUps.filter((p) => p.active)
@@ -723,7 +723,7 @@ export class Engine {
     for (const flea of this.fleas) {
       if (!flea.dead) targets.push({ x: flea.x + flea.w / 2, y: flea.y + flea.h / 2 })
     }
-    for (const gecko of this.scorpions) {
+    for (const gecko of this.geckos) {
       if (!gecko.dead) targets.push({ x: gecko.x + gecko.w / 2, y: gecko.y + gecko.h / 2 })
     }
     for (const ufo of this.ufos) {
@@ -843,7 +843,7 @@ export class Engine {
       }
     }
 
-    for (const sc of this.scorpions) {
+    for (const sc of this.geckos) {
       if (!sc.dead && aabb(blastRect, sc.rect())) {
         sc.dead = true
         this.addScore(ENEMIES.GORDON_THE_GECKO.SCORE)
@@ -1101,14 +1101,14 @@ export class Engine {
       }
     }
 
-    // scorpion
-    for (const sc of this.scorpions) {
+    // gecko
+    for (const sc of this.geckos) {
       if (!sc.dead && aabb(b.rect(), sc.rect())) {
         sc.dead = true
         b.active = false
         this.addScore(ENEMIES.GORDON_THE_GECKO.SCORE)
         this.addPopup(sc.x + sc.w / 2, sc.y + sc.h / 2, String(ENEMIES.GORDON_THE_GECKO.SCORE))
-        sfx.scorpion()
+        sfx.gecko()
         this.particles.emitExplosion(
           sc.x + sc.w / 2,
           sc.y + sc.h / 2,
@@ -1167,8 +1167,8 @@ export class Engine {
         this.spiders.push(new Spider(this.level, this.rand))
       } else if (roll < 0.8 && this.fleas.length < 3) {
         this.fleas.push(new Flea(this.rand))
-      } else if (this.scorpions.length < 2) {
-        this.scorpions.push(new Scorpion(this.rand))
+      } else if (this.geckos.length < 2) {
+        this.geckos.push(new Gecko(this.rand))
       }
       this.touchdownFriendCd = touchdownRules.friendCooldown
     }
@@ -1374,7 +1374,7 @@ export class Engine {
     }
     this.spiders.length = 0
     this.fleas.length = 0
-    this.scorpions.length = 0
+    this.geckos.length = 0
     this.ufos.length = 0
     this.fallingMushrooms.length = 0
     this.reflectedBullets.length = 0
@@ -1382,7 +1382,7 @@ export class Engine {
     this.touchdownFriendCd = 0
 
     this.spiderTimer = randRange(tuning.spiderMin, tuning.spiderMax, this.rand)
-    this.scorpionTimer = randRange(tuning.scorpionMin, tuning.scorpionMax, this.rand)
+    this.geckoTimer = randRange(tuning.geckoMin, tuning.geckoMax, this.rand)
     this.fleaCd =
       this.settings.gameMode === 'classic'
         ? TIMERS.SPAWN_FLEA_COOLDOWN
@@ -1508,7 +1508,7 @@ export class Engine {
     this.centipedes = []
     this.spiders = []
     this.fleas = []
-    this.scorpions = []
+    this.geckos = []
     this.ufos = []
     this.powerUps = []
     this.fallingMushrooms = []
@@ -1521,7 +1521,7 @@ export class Engine {
     this.coinFrenzyTimer = 0
     this.spiderTimer = randRange(TIMERS.SPAWN_SPIDER_MIN, TIMERS.SPAWN_SPIDER_MAX, this.rand)
     this.fleaCd = TIMERS.SPAWN_FLEA_COOLDOWN
-    this.scorpionTimer = randRange(TIMERS.SPAWN_SCORPION_MIN, TIMERS.SPAWN_SCORPION_MAX, this.rand)
+    this.geckoTimer = randRange(TIMERS.SPAWN_GECKO_MIN, TIMERS.SPAWN_GECKO_MAX, this.rand)
     this.startLevel()
   }
 
@@ -1592,8 +1592,8 @@ export class Engine {
     for (const f of this.fleas) {
       drawFlea(g, f.x, f.y, f.w, f.h)
     }
-    for (const sc of this.scorpions) {
-      drawScorpion(g, sc.x, sc.y, sc.w, sc.h)
+    for (const sc of this.geckos) {
+      drawGecko(g, sc.x, sc.y, sc.w, sc.h)
     }
     for (const ufo of this.ufos) {
       if (!ufo.dead) drawUFO(g, ufo.x, ufo.y, ufo.w, ufo.h)
@@ -1778,7 +1778,7 @@ export class Engine {
           g.strokeRect(r.x, r.y, r.w, r.h)
         }
 
-        for (const sc of this.scorpions) {
+        for (const sc of this.geckos) {
           if (sc.dead) continue
           const r = sc.rect()
           g.strokeRect(r.x, r.y, r.w, r.h)

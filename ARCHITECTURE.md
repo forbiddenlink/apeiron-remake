@@ -25,7 +25,7 @@ silently trusted (see the docs-rot discipline).
 | Field | `Grid.ts` | mushroom grid, cell occupancy, reflective/psychedelic flags |
 | Player | `Player.ts` | movement state, bullets, power-up effects, ADS/fire cadence |
 | Centipede | `Centipede.ts` | segment chain, descent, splitting, touchdown |
-| Enemies | `Enemies.ts` | Spider (chase), Flea (mushroom drop), Scorpion (poison) |
+| Enemies | `Enemies.ts` | Spider = Larry the Scobster (chase, proximity score), Flea (mushroom drop), Gecko (poison) |
 | UFO | `UFO.ts` | bonus UFO behavior |
 | Power-ups | `PowerUp.ts` | yummy lifecycle, fall, collect/miss |
 | Render | `ProceduralSprites.ts`, `BackgroundEffects.ts` | 2D canvas draw of every entity + backdrop |

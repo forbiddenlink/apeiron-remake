@@ -24,9 +24,9 @@ const palette = {
   fleaDark: '#1f2840',
   fleaMid: '#3f5a87',
   fleaHi: '#9dc0eb',
-  scorpionDark: '#463344',
-  scorpionMid: '#76546f',
-  scorpionHi: '#c27f70',
+  geckoDark: '#463344',
+  geckoMid: '#76546f',
+  geckoHi: '#c27f70',
   ufoDark: '#2f3a3a',
   ufoMid: '#58726b',
   ufoHi: '#c0d9c7',
@@ -367,7 +367,7 @@ export function drawSpider(
   w: number,
   h: number
 ) {
-  // LARRY THE SCOBSTER - a cantankerous scorpion-lobster hybrid!
+  // LARRY THE SCOBSTER - a cantankerous gecko-lobster hybrid!
   const px = snap(x)
   const py = snap(y)
   const cx = px + w * 0.5
@@ -428,7 +428,7 @@ export function drawSpider(
   g.lineTo(cx + 13, cy + 2)
   g.stroke()
 
-  // Main body (scorpion-like segmented)
+  // Main body (gecko-like segmented)
   g.fillStyle = radial(g, cx - 1, cy - 1.5, 0.8, 8, '#9fd37f', '#39593a')
   g.beginPath()
   g.ellipse(cx, cy, 6.5, 4, 0, 0, Math.PI * 2)
@@ -480,7 +480,7 @@ export function drawSpider(
   g.lineTo(cx + 1, cy - 1.2)
   g.stroke()
 
-  // Small scorpion tail hint
+  // Small gecko tail hint
   g.strokeStyle = '#39593a'
   g.lineWidth = 2
   g.beginPath()
@@ -714,13 +714,7 @@ export function drawUFO(g: CanvasRenderingContext2D, x: number, y: number, w: nu
   g.fill()
 }
 
-export function drawScorpion(
-  g: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number
-) {
+export function drawGecko(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
   // GORDON THE GECKO - his B.O. is literally poison!
   const px = snap(x)
   const py = snap(y)

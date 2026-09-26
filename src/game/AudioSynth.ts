@@ -185,8 +185,8 @@ export const sfx = {
     setTimeout(() => noise(0.1, 0.08, 'pink'), 150)
   },
 
-  // Gordon the Gecko (Scorpion)
-  scorpion() {
+  // Gordon the Gecko
+  gecko() {
     voiceClip('gordon')
     fmOsc(860, 215, 80, 0.2, 'sawtooth', 0.2)
     setTimeout(() => noise(0.15, 0.1, 'brown'), 100)

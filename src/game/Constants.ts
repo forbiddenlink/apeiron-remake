@@ -8,11 +8,13 @@ export const SCORE = {
   SEGMENT: 10,
   HEAD: 100,
   FLEA: 200,
-  SPIDER_NEAR: 900,
-  SPIDER_MED: 600,
-  SPIDER_FAR: 300,
+  // Larry the Scobster. The 1995 FAQ lists him as "Scorpion 1500": the max,
+  // earned at close range. It gives no lower tiers; these keep Centipede's
+  // 3:2:1 spider ratio as remake calibration.
+  SCOBSTER_NEAR: 1500,
+  SCOBSTER_MED: 1000,
+  SCOBSTER_FAR: 500,
   GECKO: 1000,
-  SCORPION: 1500,
   MUSHROOM_HIT: 1,
   POISON_MUSHROOM_HIT: 5,
   SPACESHIP_MIN: 500,
@@ -83,7 +85,7 @@ export const SPEED = {
   SPIDER_PX_PER_SEC_X: 130, // Slightly slower for better gameplay
   SPIDER_PX_PER_SEC_Y: 95,
   FLEA_PX_PER_SEC_Y: 220,
-  SCORPION_PX_PER_SEC_X: 140,
+  GECKO_PX_PER_SEC_X: 140,
 } as const
 
 export const TIMERS = {
@@ -93,8 +95,8 @@ export const TIMERS = {
   SPAWN_SPIDER_MIN: 5.0, // Give players more time before first spider
   SPAWN_SPIDER_MAX: 10.0,
   SPAWN_FLEA_COOLDOWN: 2.0,
-  SPAWN_SCORPION_MIN: 6.0,
-  SPAWN_SCORPION_MAX: 12.0,
+  SPAWN_GECKO_MIN: 6.0,
+  SPAWN_GECKO_MAX: 12.0,
   COIN_SPAWN_MIN: 10.0,
   COIN_SPAWN_MAX: 20.0,
   PSYCHEDELIC_DURATION: 4.0, // Duration of psychedelic effect

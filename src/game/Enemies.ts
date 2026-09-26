@@ -110,7 +110,7 @@ export class Flea {
   }
 }
 
-export class Scorpion {
+export class Gecko {
   w = GRID.CELL * 1.5 // Larger for better visibility (Gordon is a gecko!)
   h = GRID.CELL * 1.1
   dead = false

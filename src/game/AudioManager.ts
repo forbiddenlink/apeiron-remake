@@ -8,7 +8,7 @@ export type SoundId =
   | 'hit'
   | 'spider'
   | 'flea'
-  | 'scorpion'
+  | 'gecko'
   | 'ufo'
   | 'powerup'
   | 'extra'
@@ -64,7 +64,7 @@ const SOUND_CONFIGS: Record<SoundId, SoundConfig> = {
     noise: { duration: 0.1, filter: 'pink' },
     volume: 0.23,
   },
-  scorpion: {
+  gecko: {
     frequencies: [860, 800],
     duration: 0.2,
     type: 'sawtooth',
@@ -353,8 +353,8 @@ class AudioManager {
   flea(): void {
     this.play('flea')
   }
-  scorpion(): void {
-    this.play('scorpion')
+  gecko(): void {
+    this.play('gecko')
   }
   ufo(): void {
     this.play('ufo')
@@ -403,7 +403,7 @@ export const sfx = {
   hit: () => audioManager.hit(),
   spider: () => audioManager.spider(),
   flea: () => audioManager.flea(),
-  scorpion: () => audioManager.scorpion(),
+  gecko: () => audioManager.gecko(),
   ufo: () => audioManager.ufo(),
   powerup: () => audioManager.powerup(),
   extra: () => audioManager.extra(),

@@ -3,9 +3,17 @@ import { EXTRA_LIFE_STEP, POWERUPS, PSYCHEDELIC, SCORE } from '../src/game/Const
 
 describe('Classic Apeiron rule constants', () => {
   it('matches key score values from classic references', () => {
-    expect(SCORE.POISON_MUSHROOM_HIT).toBe(5)
+    // Every row of the 1995 FAQ "Apeiron Scores Breakdown" table.
+    expect(SCORE.HEAD).toBe(100)
+    expect(SCORE.SEGMENT).toBe(10)
     expect(SCORE.GECKO).toBe(1000)
-    expect(SCORE.SCORPION).toBe(1500)
+    expect(SCORE.MUSHROOM_HIT).toBe(1)
+    expect(SCORE.POISON_MUSHROOM_HIT).toBe(5)
+    expect(SCORE.FALLING_MUSHROOM).toBe(3000)
+    expect(SCORE.FALLING_POISON_MUSHROOM).toBe(6000)
+    expect(SCORE.FLEA).toBe(200)
+    // The FAQ's "Scorpion" is Larry the Scobster: 1500 at most.
+    expect(SCORE.SCOBSTER_NEAR).toBe(1500)
     expect(SCORE.SPACESHIP_MIN).toBe(500)
     expect(SCORE.SPACESHIP_MAX).toBe(3000)
     expect(EXTRA_LIFE_STEP).toBe(20000)
