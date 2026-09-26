@@ -62,7 +62,7 @@ const GROUCHO_THE_FLICK = {
 
 const GORDON_THE_GECKO = {
   SPEED_PX_PER_SEC_X: SPEED.SCORPION_PX_PER_SEC_X,
-  SCORE: SCORE.SCORPION,
+  SCORE: SCORE.GECKO,
   SPAWN_MIN_TIME: TIMERS.SPAWN_SCORPION_MIN,
   SPAWN_MAX_TIME: TIMERS.SPAWN_SCORPION_MAX
 } as const;
@@ -143,7 +143,8 @@ export const YUMMIES = {
     SHIELD: BASE_POWERUP_COLORS.shield,
     SPEED: BASE_POWERUP_COLORS.speed,
     GHOST: BASE_POWERUP_COLORS.ghost,
-    NUKE: BASE_POWERUP_COLORS.nuke
+    NUKE: BASE_POWERUP_COLORS.nuke,
+    MULTIPLIER: BASE_POWERUP_COLORS.multiplier
   }
 } as const;
 
@@ -177,7 +178,8 @@ export const POWERUP_COLORS = {
   triple: BASE_POWERUP_COLORS.triple,
   speed: BASE_POWERUP_COLORS.speed,
   ghost: BASE_POWERUP_COLORS.ghost,
-  nuke: BASE_POWERUP_COLORS.nuke
+  nuke: BASE_POWERUP_COLORS.nuke,
+  multiplier: BASE_POWERUP_COLORS.multiplier
 } as const;
 
 export const PLAYER = {

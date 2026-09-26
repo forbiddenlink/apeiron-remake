@@ -1,6 +1,18 @@
 import { GRID, ENEMIES } from './GameConfig';
 import type { Rect } from './Types';
 
+export function getScobsterScore(distance: number): number {
+  if (distance < GRID.CELL * 2) return ENEMIES.LARRY_THE_SCOBSTER.SCORE_NEAR;
+  if (distance < GRID.CELL * 4) return ENEMIES.LARRY_THE_SCOBSTER.SCORE_MED;
+  return ENEMIES.LARRY_THE_SCOBSTER.SCORE_FAR;
+}
+
+export function getScobsterDistance(player: Rect, scobster: Rect): number {
+  const dx = scobster.x + scobster.w / 2 - (player.x + player.w / 2);
+  const dy = scobster.y + scobster.h / 2 - (player.y + player.h / 2);
+  return Math.hypot(dx, dy);
+}
+
 export class Spider {
   w = GRID.CELL * 1.4;   // Larger for better visibility
   h = GRID.CELL * 1.15;

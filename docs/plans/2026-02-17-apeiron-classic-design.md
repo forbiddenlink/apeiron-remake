@@ -16,7 +16,7 @@ Key mechanics confirmed from the guide:
 - Enemy score values include Pentipede segments/head, Groucho/Flea, Gordon/Gecko, and proximity-based Larry/Scobster scores.
 - If multiple fleas are on-screen, flea scores increase in powers of two for consecutive kills.
 - Mouse aiming/movement and rapid mouse-click firing were core control expectations.
-- `P` and `Caps Lock` are pause controls; `Esc` aborts current game from pause state.
+- `P` and `Caps Lock` are pause controls; `Esc` aborts an active game.
 - Pentipede touchdown at the bottom row is a danger event that can bring more enemies.
 - Yummies include weapon/defense effects and utility effects (for example lock/house-cleaning/extra man).
 - Manual point table includes poison-mushroom hits and spaceship random-value scoring windows.
@@ -33,7 +33,8 @@ Key mechanics confirmed from the guide:
   - Body segment: 10
   - Head segment: 100
   - Flea: 200 (doubles when multiple fleas are active and killed in sequence)
-  - Gecko/Scorpion: 1500
+  - Gecko: 1000
+  - Scorpion: 1500 (proximity-based; not yet a separate runtime enemy)
   - Spider/Scobster: proximity-tiered (300/600/900 family)
   - Spaceship: variable random value within the manual range
 - Mushroom points:
@@ -53,13 +54,13 @@ Implemented in this pass:
 - Build restored and tests restored to green.
 - Codebase compatibility layer added around fractured config migration.
 - Classic scoring updates:
-  - `SCORE.SCORPION = 1500`
+- `SCORE.GECKO = 1000`; `SCORE.SCORPION = 1500`
   - `EXTRA_LIFE_STEP = 20000`
   - Extra-life cap at 8 lives in runtime awarding logic.
   - Flea kill value now scales with concurrent-flea streak behavior.
 - Input behavior moved to **mouse-first with keyboard fallback** to better match classic play feel.
 - Mouse vectoring bug fixed so cursor movement now correctly drives the player in classic-style targeting.
-- Keyboard control parity updated: `P` or `CapsLock` toggles pause, `Esc` aborts to title while playing or paused.
+- Keyboard control parity updated: `P` or `CapsLock` toggles pause, `Esc` aborts to title while playing.
 - Modern score inflation removed from runtime scoring:
   - no combo/chain multiplier stack
   - no modern level-end perfect/speed/flawless bonus package
@@ -77,10 +78,19 @@ Implemented in this pass:
   - `Enhanced`: modern combo/chain/level bonus scoring and tighter enemy pacing windows.
   - Runtime switch is exposed in Options as `Gameplay Mode`.
 
+Correction after re-checking the 1995 Apeiron FAQ: psychedelic mushrooms and
+Yummy coins are original Apeiron mechanics, not Enhanced-only additions. A
+psychedelic mushroom applies the documented 10× scoring effect. The separate
+score-coin/frenzy mechanic remains Enhanced-only; it is not a substitute for
+Yummy coins. The psychedelic-mushroom spawn rate, initial wave, and duration
+remain remake calibration targets; the FAQ does not establish those values.
+
 ## Known Gaps vs Classic
 - Falling mushroom behavior is implemented (spawn/fall/pop scoring and player hazard), but level-by-level tuning against original pacing still needs calibration.
 - Some modern visual/audio flourishes remain enabled (kept intentionally as enhancement layer).
 - Exact enemy spawn windows and movement amplitudes still need side-by-side calibration against original gameplay footage.
+- Multiplier Yummy behavior is implemented against the visible Bonus total. The original guide confirms its target but not its factor; the current 2× value is remake calibration.
+- The source describes a separate proximity-scored Scorpion. The current gecko-named runtime enemy is now correctly scored but still carries the legacy `Scorpion` class name; the distinct Scorpion enemy remains unmodeled.
 
 ## Next Implementation Pass (Recommended)
 1. Add regression tests for:

@@ -20,7 +20,7 @@ assets are procedural: no image or audio files - sprites come from
 - Mouse click (or Space): fire
 - Arrow keys: keyboard movement fallback
 - P or CapsLock: pause / resume
-- Esc (while playing or paused): abort run to title
+- Esc (while playing): abort run to title
 - Space (title/game over): start a new run
 - Options > Gameplay Mode: switch `Classic` / `Enhanced`
 

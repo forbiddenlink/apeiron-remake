@@ -11,6 +11,7 @@ export const SCORE = {
   SPIDER_NEAR: 900,
   SPIDER_MED: 600,
   SPIDER_FAR: 300,
+  GECKO: 1000,
   SCORPION: 1500,
   MUSHROOM_HIT: 1,
   POISON_MUSHROOM_HIT: 5,
@@ -19,7 +20,6 @@ export const SCORE = {
   FALLING_MUSHROOM: 3000,
   FALLING_POISON_MUSHROOM: 6000,
   MUSHROOM_CLEAR_BONUS: 4,
-  PSYCHEDELIC_MUSHROOM: 500,       // Bonus for shooting psychedelic mushroom
   COIN: 100,                        // Points per coin collected
   COIN_FRENZY_BONUS: 1000,         // Bonus for collecting many coins
   JUGGLE_BASE: 3000,               // Base score for juggling falling mushroom
@@ -110,9 +110,12 @@ export const REFLECTED_BULLET = {
 
 // Psychedelic mushroom settings
 export const PSYCHEDELIC = {
-  SPAWN_CHANCE: 0.02,              // 2% chance per mushroom
-  POINT_MULTIPLIER: 3,             // 3x points during effect
-  START_WAVE: 3                    // First wave with psychedelic mushrooms
+  // Spawn rate and first wave are remake calibration, not documented facts.
+  SPAWN_CHANCE: 0.02,
+  // Apeiron's guide describes the magic mushroom as making everything worth
+  // ten times as much. This is not an Enhanced-only mechanic.
+  POINT_MULTIPLIER: 10,
+  START_WAVE: 3
 } as const;
 
 // Coin system settings
@@ -143,6 +146,9 @@ export const POWERUPS = {
   LOCK_DURATION: 12.0,
   HOUSE_CLEANING_DURATION: 0.0, // instant effect
   EXTRA_MAN_DURATION: 0.0,      // instant effect
+  // The guide confirms a Multiplier Yummy but not its factor; 2× is remake
+  // calibration and applies only to the tracked Bonus total.
+  BONUS_MULTIPLIER: 2,
   
   // Power-up effects
   MACHINE_GUN_RATE: 0.05,        // seconds between shots
@@ -158,7 +164,7 @@ export const POWERUPS = {
   FLOAT_SPEED: 2,             // Float cycles per second
   
   // Yummy types
-  TYPES: ['guided', 'diamond', 'machine_gun', 'shield', 'lock', 'house_cleaning', 'extra_man'] as const,
+  TYPES: ['guided', 'diamond', 'machine_gun', 'shield', 'lock', 'house_cleaning', 'extra_man', 'multiplier'] as const,
 
   // Legacy aliases retained while old code paths are removed.
   TRIPLE_SHOT_DURATION: 0.0,
@@ -214,6 +220,7 @@ export const POWERUP_COLORS = {
   lock: '#ff4081',            // Lock
   house_cleaning: '#8bc34a',  // House-cleaning
   extra_man: '#ffffff',       // Extra life
+  multiplier: '#ffca28',      // Bonus-score multiplier
   // Legacy aliases kept for compatibility references.
   triple: '#ff4081',
   speed: '#40c4ff',

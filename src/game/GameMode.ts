@@ -57,18 +57,25 @@ export function usesModernScoring(mode: GameMode): boolean {
   return mode === 'enhanced';
 }
 
-// Modern-enhancement systems. Classic Apeiron has none of these; they must stay
-// entirely inside the Enhanced profile so Classic play never drifts from the original.
+// The separate score-coin/frenzy system is an Enhanced addition. It is distinct
+// from Apeiron's Yummy coins, which are represented by PowerUp in both modes.
 export function spawnsCoins(mode: GameMode): boolean {
   return mode === 'enhanced';
 }
 
 export function usesPsychedelicMushrooms(level: number, mode: GameMode): boolean {
-  return mode === 'enhanced' && level >= PSYCHEDELIC.START_WAVE;
+  void mode;
+  return level >= PSYCHEDELIC.START_WAVE;
 }
 
 export function usesReflectiveMushrooms(level: number, mode: GameMode): boolean {
   return mode === 'enhanced' && level >= REFLECTED_BULLET.START_WAVE;
+}
+
+// The original guide says a Pentipede touchdown "invites his friends in to
+// help celebrate", so reinforcements apply to both profiles.
+export function spawnsTouchdownFriends(_mode: GameMode): boolean {
+  return true;
 }
 
 export interface WaveComposition {

@@ -161,7 +161,7 @@ export function Menu({ mode, visualProfile, score, highScore, level, onStart, on
       <section style={{ marginBottom: '20px' }}>
         <h3 style={{ color: '#78f6ff' }}>SCORING</h3>
         <p>Poison mushroom hit: +{SCORE.POISON_MUSHROOM_HIT}</p>
-        <p>Gecko (scorpion): +{SCORE.SCORPION}</p>
+        <p>Gordon the Gecko: +{SCORE.GECKO}</p>
         <p>Extra life every 20,000 points (max 8)</p>
       </section>
       

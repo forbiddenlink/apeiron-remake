@@ -13,7 +13,8 @@ const POWERUP_DURATIONS: Record<PowerUpType, number> = {
   shield: POWERUPS.SHIELD_DURATION,
   lock: POWERUPS.LOCK_DURATION,
   house_cleaning: POWERUPS.HOUSE_CLEANING_DURATION,
-  extra_man: POWERUPS.EXTRA_MAN_DURATION
+  extra_man: POWERUPS.EXTRA_MAN_DURATION,
+  multiplier: 0
 };
 
 export class Bullet {
@@ -30,9 +31,32 @@ export class Bullet {
     if (!this.active) return;
     this.x += this.vx * dt;
     this.y += this.vy * dt;
-    if (this.y < -8 || this.x < -8 || this.x > GRID.COLS * GRID.CELL + 8) {
+    if (
+      this.y < -8 ||
+      this.y > GRID.ROWS * GRID.CELL + 8 ||
+      this.x < -8 ||
+      this.x > GRID.COLS * GRID.CELL + 8
+    ) {
       this.active = false;
     }
+  }
+
+  steerToward(targetX: number, targetY: number, dt: number): void {
+    if (!this.active || !this.isGuided) return;
+
+    const speed = Math.hypot(this.vx, this.vy);
+    if (speed === 0) return;
+
+    const currentAngle = Math.atan2(this.vy, this.vx);
+    const targetAngle = Math.atan2(targetY - this.y, targetX - this.x);
+    let angleDelta = targetAngle - currentAngle;
+    if (angleDelta > Math.PI) angleDelta -= Math.PI * 2;
+    if (angleDelta < -Math.PI) angleDelta += Math.PI * 2;
+
+    const maxTurn = XQJ37_BLASTER.GUIDED_TURN_RATE * Math.PI / 180 * dt;
+    const nextAngle = currentAngle + Math.max(-maxTurn, Math.min(maxTurn, angleDelta));
+    this.vx = Math.cos(nextAngle) * speed;
+    this.vy = Math.sin(nextAngle) * speed;
   }
 
   rect(): Rect {
@@ -232,7 +256,11 @@ export class Player {
   }
 
   isShieldActive(): boolean {
-    return this.hasPowerUp('shield') && this.shieldFlashT < POWERUPS.SHIELD_FLASH_RATE / 2;
+    return this.hasPowerUp('shield');
+  }
+
+  isShieldVisible(): boolean {
+    return this.isShieldActive() && this.shieldFlashT < POWERUPS.SHIELD_FLASH_RATE / 2;
   }
 
   rect(): Rect {
