@@ -1,23 +1,24 @@
 import { describe, it, expect } from 'vitest';
-import { Spider } from '../src/game/Enemies';
-import { CELL, ROWS, PLAYER_ROWS, SCORE } from '../src/game/Constants';
+import { getScobsterDistance, getScobsterScore } from '../src/game/Enemies';
+import { CELL, SCORE } from '../src/game/Constants';
 
 // Note: we only verify score selection mapping; we don't simulate bullets here
 
 describe('Spider proximity score tier', () => {
   it('gives higher score when closer to player', () => {
-    // Minimal stub with same logic as Engine.spiderScore
-    const spiderScore = (playerY:number, spY:number) => {
-      const dy = Math.abs(spY - playerY);
-      if (dy < CELL*2) return SCORE.SPIDER_NEAR;
-      if (dy < CELL*4) return SCORE.SPIDER_MED;
-      return SCORE.SPIDER_FAR;
-    };
-    const py = (ROWS-PLAYER_ROWS)*CELL - 10;
-    const nearY = py + CELL;
-    const medY = py + CELL*3;
-    const farY = py + CELL*6;
-    expect(spiderScore(py, nearY)).toBeGreaterThan(spiderScore(py, medY));
-    expect(spiderScore(py, medY)).toBeGreaterThan(spiderScore(py, farY));
+    expect(getScobsterScore(CELL)).toBe(SCORE.SPIDER_NEAR);
+    expect(getScobsterScore(CELL * 3)).toBe(SCORE.SPIDER_MED);
+    expect(getScobsterScore(CELL * 6)).toBe(SCORE.SPIDER_FAR);
+    expect(getScobsterScore(CELL * 2)).toBe(SCORE.SPIDER_MED);
+    expect(getScobsterScore(CELL * 4)).toBe(SCORE.SPIDER_FAR);
+  });
+
+  it('uses center-to-center distance, so horizontal separation lowers the score too', () => {
+    const player = { x: 100, y: 100, w: CELL, h: CELL };
+    const horizontal = { x: 100 + CELL * 2, y: 100, w: CELL, h: CELL };
+    const diagonal = { x: 100 + CELL * 2, y: 100 + CELL * 2, w: CELL, h: CELL };
+
+    expect(getScobsterScore(getScobsterDistance(player, horizontal))).toBe(SCORE.SPIDER_MED);
+    expect(getScobsterScore(getScobsterDistance(player, diagonal))).toBe(SCORE.SPIDER_MED);
   });
 });

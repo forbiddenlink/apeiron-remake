@@ -2,7 +2,7 @@ import { GRID, SCORE, SCORING, EXTRA_LIFE_STEP, VISUAL, YUMMIES, ENEMIES, DEBUG,
 import { Grid, Mushroom } from './Grid';
 import { Player, type PowerUpType, type Bullet } from './Player';
 import { Centipede } from './Centipede';
-import { Spider, Flea, Scorpion } from './Enemies';
+import { Spider, Flea, Scorpion, getScobsterDistance, getScobsterScore } from './Enemies';
 import { UFO } from './UFO';
 import { PowerUp } from './PowerUp';
 import { ParticleSystem } from './ParticleSystem';
@@ -23,7 +23,7 @@ import {
 } from './ProceduralSprites';
 import { sfx } from './AudioSynth';
 import { makeRng } from './RNG';
-import { DEFAULT_GAME_MODE, getFallingMushroomChance, getLevelTuning, getTouchdownRules, getWaveComposition, spawnsCoins, usesModernScoring, usesPsychedelicMushrooms, usesReflectiveMushrooms, type GameMode } from './GameMode';
+import { DEFAULT_GAME_MODE, getFallingMushroomChance, getLevelTuning, getTouchdownRules, getWaveComposition, spawnsCoins, spawnsTouchdownFriends, usesModernScoring, usesPsychedelicMushrooms, usesReflectiveMushrooms, type GameMode } from './GameMode';
 import { WEAPONS } from './Constants';
 
 const CELL = GRID.CELL;
@@ -31,6 +31,17 @@ const COLS = GRID.COLS;
 const ROWS = GRID.ROWS;
 const PLAYER_ROWS = GRID.PLAYER_ROWS;
 const FIELD_W = COLS * CELL;
+export const MAX_BONUS_SCORE = 99999;
+
+export function getBonusMultiplierAward(
+  bonus: number,
+  scoreMultiplier = 1
+): { bonus: number; score: number } {
+  const cappedBonus = Math.min(MAX_BONUS_SCORE, Math.max(0, bonus));
+  const multipliedBonus = Math.min(MAX_BONUS_SCORE, cappedBonus * POWERUPS.BONUS_MULTIPLIER);
+  const increase = multipliedBonus - cappedBonus;
+  return { bonus: multipliedBonus, score: increase * scoreMultiplier };
+}
 
 type EngineSettings = {
   gameMode: GameMode;
@@ -171,8 +182,8 @@ export class Engine{
           }
         }
 
-        // Psychedelic mushrooms (rainbow - triggers point multiplier).
-        // Enhanced-only: Classic Apeiron has no point-multiplier mushrooms.
+        // Psychedelic mushrooms (rainbow - triggers the original Apeiron
+        // ten-times score multiplier).
         if (usesPsychedelicMushrooms(this.level, this.settings.gameMode) && !mush.reflective) {
           if (this.rand() < PSYCHEDELIC.SPAWN_CHANCE) {
             mush.psychedelic = true;
@@ -228,7 +239,7 @@ export class Engine{
     
     // Update scoring mechanics
     this.updateScoring(dt);
-    if (usesModernScoring(this.settings.gameMode) && this.touchdownFriendCd > 0) {
+    if (this.touchdownFriendCd > 0) {
       this.touchdownFriendCd = Math.max(0, this.touchdownFriendCd - dt);
     }
     
@@ -238,7 +249,8 @@ export class Engine{
     // update entities (mouse-first, keyboard fallback)
     const mouseState = this.mouseInput.getInput(
       this.player.x + this.player.w / 2,
-      this.player.y + this.player.h / 2
+      this.player.y + this.player.h / 2,
+      dt
     );
     const keyboardShooting = this.keys.has('Space');
     const keyboardMoving = this.keys.has('ArrowLeft') || this.keys.has('ArrowRight') || this.keys.has('ArrowUp') || this.keys.has('ArrowDown');
@@ -416,6 +428,16 @@ export class Engine{
           }
           popupText = 'YUMMY! HOUSE CLEANING';
           sfx.extra();
+        } else if (p.type === 'multiplier') {
+          // This is a bonus award, not an enemy score: Enhanced level/combo
+          // multipliers do not alter the visible Bonus multiplication.
+          const award = getBonusMultiplierAward(this.sidebarBonus, this.psychedelicMultiplier);
+          this.sidebarBonus = award.bonus;
+          this.recordScore(award.score);
+          popupText = award.score > 0
+            ? `YUMMY! BONUS ×${POWERUPS.BONUS_MULTIPLIER}`
+            : 'YUMMY! NO BONUS YET';
+          sfx.extra();
         } else {
           this.player.addPowerUp(p.type);
         }
@@ -543,6 +565,7 @@ export class Engine{
     }
 
     // bullets collisions
+    this.guideBullets(dt);
     this.handleBullets();
 
     // Player collisions with enemies
@@ -629,6 +652,45 @@ export class Engine{
       if (this.handleRegularBullet(b)) {
         continue; // Bullet was consumed
       }
+    }
+  }
+
+  private guideBullets(dt: number): void {
+    const targets: Array<{ x: number; y: number }> = [];
+    for (const centipede of this.centipedes) {
+      for (const segment of centipede.segments) {
+        targets.push({
+          x: segment.c * CELL + CELL / 2,
+          y: segment.r * CELL + CELL / 2
+        });
+      }
+    }
+    for (const spider of this.spiders) {
+      if (!spider.dead) targets.push({ x: spider.x + spider.w / 2, y: spider.y + spider.h / 2 });
+    }
+    for (const flea of this.fleas) {
+      if (!flea.dead) targets.push({ x: flea.x + flea.w / 2, y: flea.y + flea.h / 2 });
+    }
+    for (const gecko of this.scorpions) {
+      if (!gecko.dead) targets.push({ x: gecko.x + gecko.w / 2, y: gecko.y + gecko.h / 2 });
+    }
+    for (const ufo of this.ufos) {
+      if (!ufo.dead) targets.push({ x: ufo.x + ufo.w / 2, y: ufo.y + ufo.h / 2 });
+    }
+
+    if (targets.length === 0) return;
+    for (const bullet of this.player.bullets) {
+      if (!bullet.active || !bullet.isGuided) continue;
+      let target = targets[0];
+      let nearestDistance = Infinity;
+      for (const candidate of targets) {
+        const distance = Math.hypot(candidate.x - bullet.x, candidate.y - bullet.y);
+        if (distance < nearestDistance) {
+          target = candidate;
+          nearestDistance = distance;
+        }
+      }
+      bullet.steerToward(target.x, target.y, dt);
     }
   }
   
@@ -727,8 +789,8 @@ export class Engine{
     for (const sc of this.scorpions) {
       if (!sc.dead && aabb(blastRect, sc.rect())) {
         sc.dead = true;
-        this.addScore(SCORE.SCORPION);
-        this.addPopup(sc.x+sc.w/2, sc.y+sc.h/2, String(SCORE.SCORPION));
+        this.addScore(ENEMIES.GORDON_THE_GECKO.SCORE);
+        this.addPopup(sc.x+sc.w/2, sc.y+sc.h/2, String(ENEMIES.GORDON_THE_GECKO.SCORE));
         this.particles.enemyExplosion(sc.x + sc.w/2, sc.y + sc.h/2);
         this.maybeDropPowerUp(sc.x + sc.w/2, sc.y + sc.h/2);
         hitCount++;
@@ -750,6 +812,16 @@ export class Engine{
   }
   
   private handleRegularBullet(b: Bullet): boolean {
+    // Yummy coins can be accidentally knocked out of play by a shot.
+    for (const powerUp of this.powerUps) {
+      if (!powerUp.active || !aabb(b.rect(), powerUp.rect())) continue;
+      b.active = false;
+      powerUp.deflect();
+      this.addPopup(powerUp.x + powerUp.w / 2, powerUp.y + powerUp.h / 2, 'YUMMY BOUNCED!');
+      sfx.hit();
+      return true;
+    }
+
       // mushrooms
       const mc = Math.floor(b.x / CELL), mr = Math.floor(b.y / CELL);
       const mush = this.grid.get(mc, mr);
@@ -776,7 +848,6 @@ export class Engine{
         if (mush.psychedelic) {
           this.psychedelicTimer = TIMERS.PSYCHEDELIC_DURATION;
           this.psychedelicMultiplier = PSYCHEDELIC.POINT_MULTIPLIER;
-          this.addScore(SCORE.PSYCHEDELIC_MUSHROOM);
           this.addPopup(mush.x + CELL/2, mush.y + CELL/2, `PSYCHEDELIC! ${PSYCHEDELIC.POINT_MULTIPLIER}x POINTS!`);
           sfx.extra();
           // Rainbow explosion
@@ -944,8 +1015,8 @@ export class Engine{
       if (!sc.dead && aabb(b.rect(), sc.rect())){
         sc.dead = true;
         b.active = false;
-        this.addScore(SCORE.SCORPION);
-        this.addPopup(sc.x+sc.w/2, sc.y+sc.h/2, String(SCORE.SCORPION));
+        this.addScore(ENEMIES.GORDON_THE_GECKO.SCORE);
+        this.addPopup(sc.x+sc.w/2, sc.y+sc.h/2, String(ENEMIES.GORDON_THE_GECKO.SCORE));
         sfx.scorpion();
         this.particles.emitExplosion(sc.x + sc.w/2, sc.y + sc.h/2, '#cc705a', this.isClassicMode() ? 6 : 12);
         this.maybeDropPowerUp(sc.x + sc.w/2, sc.y + sc.h/2);
@@ -960,7 +1031,7 @@ export class Engine{
         b.active = false;
         const steps = (SCORE.SPACESHIP_MAX - SCORE.SPACESHIP_MIN) / 100;
         const pts = SCORE.SPACESHIP_MIN + Math.floor(this.rand() * (steps + 1)) * 100;
-        this.addScore(pts);
+        this.addScore(pts, 'bonus');
         this.addPopup(ufo.x + ufo.w/2, ufo.y + ufo.h/2, String(pts));
         sfx.ufo();
         this.particles.emitExplosion(ufo.x + ufo.w/2, ufo.y + ufo.h/2, '#aac7ab', this.isClassicMode() ? 8 : 14);
@@ -971,21 +1042,16 @@ export class Engine{
     return false;
   }
 
-  private spiderScore(sp: Spider) {
-    // Proximity tiers by distance to player
-    const py = this.player.y;
-    const dy = Math.abs(sp.y - py);
-    if (dy < GRID.CELL * 2) return ENEMIES.LARRY_THE_SCOBSTER.SCORE_NEAR;
-    if (dy < GRID.CELL * 4) return ENEMIES.LARRY_THE_SCOBSTER.SCORE_MED;
-    return ENEMIES.LARRY_THE_SCOBSTER.SCORE_FAR;
+  private spiderScore(sp: Spider): number {
+    // The source describes score by proximity, so use the actual distance
+    // between sprite centers rather than only their vertical separation.
+    return getScobsterScore(getScobsterDistance(this.player.rect(), sp.rect()));
   }
 
   private handleTouchdowns(count: number) {
     const modeTuning = getLevelTuning(this.level, this.settings.gameMode);
     const touchdownRules = getTouchdownRules(this.settings.gameMode);
-    if (usesModernScoring(this.settings.gameMode)) {
-      this.addPopup(this.width / 2, (GRID.ROWS - GRID.PLAYER_ROWS) * GRID.CELL - 8, 'TOUCHDOWN');
-    }
+    this.addPopup(this.width / 2, (GRID.ROWS - GRID.PLAYER_ROWS) * GRID.CELL - 8, 'TOUCHDOWN');
     for (let i = 0; i < count; i++) {
       const totalSegments = this.centipedes.reduce((n, c) => n + c.segments.length, 0);
       if (totalSegments < touchdownRules.segmentCap) {
@@ -993,7 +1059,7 @@ export class Engine{
         this.centipedes.push(new Centipede(len, this.level));
       }
 
-      if (!usesModernScoring(this.settings.gameMode)) continue;
+      if (!spawnsTouchdownFriends(this.settings.gameMode)) continue;
       if (this.touchdownFriendCd > 0) continue;
       const roll = this.rand();
       if (roll < 0.45 && this.spiders.length < 2) {
@@ -1084,11 +1150,17 @@ export class Engine{
 
     finalPoints = Math.round(finalPoints);
     if (type !== 'normal') {
-      this.sidebarBonus = Math.min(99999, this.sidebarBonus + finalPoints);
+      this.sidebarBonus = Math.min(MAX_BONUS_SCORE, this.sidebarBonus + finalPoints);
     }
     
-    // Update score and check for extra life
-    this.score += finalPoints;
+    this.recordScore(finalPoints);
+
+    return finalPoints;
+  }
+
+  private recordScore(points: number) {
+    if (points <= 0) return;
+    this.score += points;
     if (this.score > this.highScore) {
       this.highScore = this.score;
       try {
@@ -1102,8 +1174,6 @@ export class Engine{
       }
       this.nextExtraLife += EXTRA_LIFE_STEP;
     }
-    
-    return finalPoints;
   }
   
   private updateScoring(dt: number) {
@@ -1261,7 +1331,8 @@ export class Engine{
     if (this.rand() < POWERUPS.SPAWN_CHANCE) {
       this.spawnPowerUp(x, y);
     }
-    // Also try to drop coins. Enhanced-only: Classic Apeiron has no coin system.
+    // Bonus score coins/frenzies are an Enhanced addition. The original
+    // Yummy coins use the PowerUp path above in both modes.
     if (spawnsCoins(this.settings.gameMode)) {
       this.maybeDropCoin(x, y);
     }
@@ -1428,7 +1499,7 @@ export class Engine{
     const p = this.player;
     
     // Draw shield effect if active
-    if (p.isShieldActive()) {
+    if (p.isShieldVisible()) {
       g.fillStyle = `rgba(${this.hexToRgb(POWERUP_COLORS.shield)},0.22)`;
       g.fillRect(p.x - 2, p.y - 2, p.w + 4, p.h + 4);
     }
@@ -1963,7 +2034,7 @@ export class Engine{
         if (this.mode === 'playing') this.pause();
         else if (this.mode === 'pause') this.resume();
       }
-      else if (e.code === 'Escape' && (this.mode === 'playing' || this.mode === 'pause')) {
+      else if (e.code === 'Escape' && this.mode === 'playing') {
         this.mode = 'title';
         this.notifyStateChange();
       }

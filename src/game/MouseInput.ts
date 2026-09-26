@@ -1,13 +1,47 @@
 import { GRID, PLAYER } from './GameConfig';
 
+export function getMouseVelocity(
+  playerX: number,
+  playerY: number,
+  targetX: number,
+  targetY: number,
+  dt: number
+): { vx: number; vy: number; arrived: boolean } {
+  const dx = targetX - playerX;
+  const dy = targetY - playerY;
+  const distance = Math.hypot(dx, dy);
+  if (distance === 0) return { vx: 0, vy: 0, arrived: true };
+
+  const speed = PLAYER.MOVEMENT.BASE_SPEED;
+  const velocity = {
+    vx: (dx / distance) * speed,
+    vy: (dy / distance) * speed * PLAYER.MOVEMENT.VERTICAL_MULT,
+  };
+  if (Math.hypot(velocity.vx, velocity.vy) * dt < distance) {
+    return { ...velocity, arrived: false };
+  }
+
+  return { vx: dx / dt, vy: dy / dt, arrived: true };
+}
+
+export function clampMouseTarget(mouseX: number, mouseY: number): { x: number; y: number } {
+  const halfWidth = PLAYER.SIZE.WIDTH / 2;
+  const halfHeight = PLAYER.SIZE.HEIGHT / 2;
+  const minY = (GRID.ROWS - GRID.PLAYER_ROWS) * GRID.CELL + halfHeight;
+  const maxY = (GRID.ROWS - 1) * GRID.CELL - halfHeight - 2;
+
+  return {
+    x: Math.max(halfWidth, Math.min(mouseX, GRID.COLS * GRID.CELL - halfWidth)),
+    y: Math.max(minY, Math.min(mouseY, maxY))
+  };
+}
+
 export class MouseInput {
   private mouseX = 0;
   private mouseY = 0;
   private mouseDown = false;
   private mouseMoved = false;
-  private lastMoveTime = 0;
-  private moveThreshold = 2; // Minimum pixels moved to trigger movement
-  private moveTimeout = 50; // ms to wait before considering mouse stopped
+  private readonly moveThreshold = 2; // Minimum pixels moved to trigger movement
   private boundingRect: DOMRect | null = null;
   private canvas: HTMLCanvasElement;
 
@@ -35,7 +69,6 @@ export class MouseInput {
       const dy = this.mouseY - oldY;
       if (Math.sqrt(dx * dx + dy * dy) > this.moveThreshold) {
         this.mouseMoved = true;
-        this.lastMoveTime = performance.now();
       }
     };
 
@@ -83,36 +116,19 @@ export class MouseInput {
     window.removeEventListener('resize', (this as any)._onResize);
   }
 
-  getInput(playerX: number, playerY: number): { vx: number; vy: number; shooting: boolean } {
-    // Check if mouse has stopped moving
-    if (performance.now() - this.lastMoveTime > this.moveTimeout) {
-      this.mouseMoved = false;
-    }
-
+  getInput(playerX: number, playerY: number, dt: number): { vx: number; vy: number; shooting: boolean } {
     // Calculate movement vector
     let vx = 0;
     let vy = 0;
 
     if (this.mouseMoved) {
       // Calculate player center
-      const playerZoneY = (GRID.ROWS - GRID.PLAYER_ROWS) * GRID.CELL;
-      const maxPlayerY = GRID.ROWS * GRID.CELL - GRID.CELL;
-
-      // Calculate target position (clamped to player zone)
-      const targetX = Math.max(0, Math.min(this.mouseX, GRID.COLS * GRID.CELL));
-      const targetY = Math.max(playerZoneY, Math.min(this.mouseY, maxPlayerY));
-
-      // Calculate direction from player toward target cursor position.
-      const dx = targetX - playerX;
-      const dy = targetY - playerY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-
-      if (dist > 0) {
-        // Normalize and scale by player speed
-        const speed = PLAYER.MOVEMENT.BASE_SPEED;
-        vx = (dx / dist) * speed;
-        vy = (dy / dist) * speed * PLAYER.MOVEMENT.VERTICAL_MULT;
-      }
+      // Clamp to the center positions Player can actually reach.
+      const target = clampMouseTarget(this.mouseX, this.mouseY);
+      const velocity = getMouseVelocity(playerX, playerY, target.x, target.y, dt);
+      vx = velocity.vx;
+      vy = velocity.vy;
+      if (velocity.arrived) this.mouseMoved = false;
     }
 
     return {

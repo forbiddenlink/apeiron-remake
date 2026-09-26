@@ -17,4 +17,13 @@ describe('Player lock carry-over snapshot', () => {
     expect(revived.hasPowerUp('lock')).toBe(true);
     expect(revived.autofireTime).toBeGreaterThan(0);
   });
+
+  it('keeps the shield protective throughout its visual flicker', () => {
+    const p = new Player();
+    p.addPowerUp('shield');
+    p.update(0.075, new Set());
+
+    expect(p.isShieldVisible()).toBe(false);
+    expect(p.isShieldActive()).toBe(true);
+  });
 });

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { Player } from '../src/game/Player';
-import { TIMERS } from '../src/game/Constants';
+import { Bullet, Player } from '../src/game/Player';
+import { CELL, ROWS, TIMERS } from '../src/game/Constants';
 
 function activeCount(p: Player){ return p.bullets.filter(b=>b.active).length; }
 
@@ -32,5 +32,29 @@ describe('Player firing rules', () => {
     p.update(TIMERS.AUTOFIRE_COOLDOWN, keys); // second shot
     p.update(TIMERS.AUTOFIRE_COOLDOWN, keys); // third shot
     expect(activeCount(p)).toBeGreaterThanOrEqual(2);
+  });
+
+  it('turns guided shots toward a target without changing their speed', () => {
+    const bullet = new Bullet();
+    bullet.active = true;
+    bullet.isGuided = true;
+    bullet.vx = 0;
+    bullet.vy = -640;
+
+    bullet.steerToward(100, 0, 0.1);
+
+    expect(bullet.vx).toBeGreaterThan(0);
+    expect(bullet.vy).toBeLessThan(0);
+    expect(Math.hypot(bullet.vx, bullet.vy)).toBeCloseTo(640);
+  });
+
+  it('retires guided shots that have turned below the field', () => {
+    const bullet = new Bullet();
+    bullet.active = true;
+    bullet.y = ROWS * CELL + 9;
+
+    bullet.update(0);
+
+    expect(bullet.active).toBe(false);
   });
 });
