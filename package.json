@@ -42,7 +42,7 @@
     "playwright": "1.64.1",
     "pngjs": "7.0.0",
     "typescript": "7.0.2",
-    "vite": "8.3.4",
+    "vite": "8.3.5",
     "vitest": "4.1.12"
   },
   "description": "A remake of the Apeiron game using React and Vite with modern web technologies",
