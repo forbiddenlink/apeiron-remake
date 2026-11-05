@@ -1,9 +1,11 @@
 # Apeiron Classic Recreation Design (2026-02-17)
 
 ## Goal
+
 Recreate classic Mac **Apeiron/Apeiron X** as closely as practical in this web codebase, while keeping visual/audio presentation enhanced and modernized.
 
 ## Verified Classic Facts (Research)
+
 Primary references used:
 - Game manual/FAQ mirror with controls, enemies, points, and powerups: https://discmaster.textfiles.com/file/25603/Archive%20of%20Apple%20Win3.1%20Mac%20DOS5%20Linux%20and%20more_CD-ROM.iso/mac/Mac%20Games/Action/Apeiron.sit/Apeiron%20Guide.txt
 - Macintosh Repository overview (historical context/versioning): https://www.macintoshrepository.org/2077-apeiron-x
@@ -22,6 +24,7 @@ Key mechanics confirmed from the guide:
 - Manual point table includes poison-mushroom hits and spaceship random-value scoring windows.
 
 ## Classic Rule Matrix
+
 - Lives:
   - Start at 3.
   - +1 every 20,000 points.
@@ -49,6 +52,7 @@ Key mechanics confirmed from the guide:
   - Extra man
 
 ## Current State (Now)
+
 Implemented in this pass:
 - Build restored and tests restored to green.
 - Codebase compatibility layer added around fractured config migration.
@@ -85,6 +89,7 @@ Yummy coins. The psychedelic-mushroom spawn rate, initial wave, and duration
 remain remake calibration targets; the FAQ does not establish those values.
 
 ## Known Gaps vs Classic
+
 - Falling mushroom behavior is implemented (spawn/fall/pop scoring and player hazard), but level-by-level tuning against original pacing still needs calibration.
 - Some modern visual/audio flourishes remain enabled (kept intentionally as enhancement layer).
 - Exact enemy spawn windows and movement amplitudes still need side-by-side calibration against original gameplay footage.
@@ -96,6 +101,7 @@ remain remake calibration targets; the FAQ does not establish those values.
 - Correction (2026-09-26): the FAQ's "Scorpion 1500" row is Larry the Scobster, not a separate enemy. Its footnote ("the closer you are when you kill him, the more points he's worth") matches the FAQ's own Scobster tips, and the table has no spider row. The Scobster now scores 1500 at close range; the FAQ gives only that max, so the 1000/500 lower tiers keep Centipede's 3:2:1 ratio as calibration. The gecko's legacy `Scorpion` class is renamed `Gecko`.
 
 ## Next Implementation Pass (Recommended)
+
 1. Add regression tests for:
    - extra-life thresholds and max-lives cap,
    - flea score doubling chain,

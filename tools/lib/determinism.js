@@ -80,6 +80,7 @@ export function installDeterminism(opts) {
       apply: () => universalNode(),
     })
   }
+  // biome-ignore lint/correctness/noComponentHookFactories: constructor shim for page-context Audio, not a React component
   function FakeAudioCtx() {
     return new Proxy(this, {
       get: (target, prop) => {
