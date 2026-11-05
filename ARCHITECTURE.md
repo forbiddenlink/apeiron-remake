@@ -19,21 +19,21 @@ silently trusted (see the docs-rot discipline).
 
 ## Subsystems & ownership
 
-| Subsystem | Files | Owns |
-|-----------|-------|------|
-| Orchestrator | `Engine.ts` | game loop, mode state machine, scoring, spawn scheduling, collision dispatch |
-| Field | `Grid.ts` | mushroom grid, cell occupancy, reflective/psychedelic flags |
-| Player | `Player.ts` | movement state, bullets, power-up effects, ADS/fire cadence |
-| Centipede | `Centipede.ts` | segment chain, descent, splitting, touchdown |
-| Enemies | `Enemies.ts` | Spider = Larry the Scobster (chase, proximity score), Flea (mushroom drop), Gecko (poison) |
-| UFO | `UFO.ts` | bonus UFO behavior |
-| Power-ups | `PowerUp.ts` | yummy lifecycle, fall, collect/miss |
-| Render | `ProceduralSprites.ts`, `BackgroundEffects.ts` | 2D canvas draw of every entity + backdrop |
-| FX | `ParticleSystem.ts`, `SparticleEffects.ts` | impact/trail/explosion particles, DOM overlay |
-| Audio | `AudioSynth.ts`, `AudioManager.ts`, `MusicSynth.ts`, `MusicManager.ts` | synthesized SFX + music |
-| Input | `MouseInput.ts`, engine key set | mouse-first + keyboard-fallback intent |
-| Config | `GameConfig.ts`, `Constants.ts`, `GameMode.ts`, `ConfigManager.ts` | tuning, classic/enhanced rules, weapons |
-| Rules | `LifeRules.ts` | extra-life thresholds, life accounting |
+| Subsystem    | Files                                                                  | Owns                                                                                       |
+| ------------ | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Orchestrator | `Engine.ts`                                                            | game loop, mode state machine, scoring, spawn scheduling, collision dispatch               |
+| Field        | `Grid.ts`                                                              | mushroom grid, cell occupancy, reflective/psychedelic flags                                |
+| Player       | `Player.ts`                                                            | movement state, bullets, power-up effects, ADS/fire cadence                                |
+| Centipede    | `Centipede.ts`                                                         | segment chain, descent, splitting, touchdown                                               |
+| Enemies      | `Enemies.ts`                                                           | Spider = Larry the Scobster (chase, proximity score), Flea (mushroom drop), Gecko (poison) |
+| UFO          | `UFO.ts`                                                               | bonus UFO behavior                                                                         |
+| Power-ups    | `PowerUp.ts`                                                           | yummy lifecycle, fall, collect/miss                                                        |
+| Render       | `ProceduralSprites.ts`, `BackgroundEffects.ts`                         | 2D canvas draw of every entity + backdrop                                                  |
+| FX           | `ParticleSystem.ts`, `SparticleEffects.ts`                             | impact/trail/explosion particles, DOM overlay                                              |
+| Audio        | `AudioSynth.ts`, `AudioManager.ts`, `MusicSynth.ts`, `MusicManager.ts` | synthesized SFX + music                                                                    |
+| Input        | `MouseInput.ts`, engine key set                                        | mouse-first + keyboard-fallback intent                                                     |
+| Config       | `GameConfig.ts`, `Constants.ts`, `GameMode.ts`, `ConfigManager.ts`     | tuning, classic/enhanced rules, weapons                                                    |
+| Rules        | `LifeRules.ts`                                                         | extra-life thresholds, life accounting                                                     |
 
 ## Cross-subsystem vocabulary
 

@@ -36,13 +36,13 @@ your browser cache and unregister any service workers.
 
 ## Scripts
 
-| Script | Purpose |
-|---|---|
-| `pnpm dev` / `build` / `preview` | Vite dev server / production build / preview |
-| `pnpm check` | typecheck + test + build |
-| `pnpm test` / `test:watch` | Vitest |
-| `pnpm typecheck` | `tsc --noEmit` |
-| `pnpm biome:check` / `biome:fix` | Biome lint/format |
+| Script                                                                           | Purpose                                                           |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `pnpm dev` / `build` / `preview`                                                 | Vite dev server / production build / preview                      |
+| `pnpm check`                                                                     | typecheck + test + build                                          |
+| `pnpm test` / `test:watch`                                                       | Vitest                                                            |
+| `pnpm typecheck`                                                                 | `tsc --noEmit`                                                    |
+| `pnpm biome:check` / `biome:fix`                                                 | Biome lint/format                                                 |
 | `pnpm run vr:baseline` / `vr:gate` / `vr:capture` / `vr:profile` / `vr:playtest` | Visual regression harness, see [tools/README.md](tools/README.md) |
 
 ## Docs
