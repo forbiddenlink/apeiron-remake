@@ -50,16 +50,16 @@ your browser cache and unregister any service workers.
 
 ## Scripts
 
-| Script | Purpose |
-|---|---|
-| `pnpm dev` / `build` / `preview` | Vite dev server / production build / preview |
-| `pnpm check` | typecheck + test + build |
-| `pnpm test` / `test:watch` | Vitest |
-| `pnpm typecheck` | `tsc --noEmit` |
-| `pnpm biome:check` / `biome:fix` | Biome lint/format |
-| `pnpm balance` | Bot simulation: prints survival, score and spawn rates per mode |
-| `pnpm icons` | Regenerate `public/` favicon, app icons and social card from the game's own art |
-| `pnpm run vr:baseline` / `vr:gate` / `vr:capture` / `vr:profile` / `vr:playtest` | Visual regression harness, see [tools/README.md](tools/README.md) |
+| Script                                                                           | Purpose                                                                         |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `pnpm dev` / `build` / `preview`                                                 | Vite dev server / production build / preview                                    |
+| `pnpm check`                                                                     | typecheck + test + build                                                        |
+| `pnpm test` / `test:watch`                                                       | Vitest                                                                          |
+| `pnpm typecheck`                                                                 | `tsc --noEmit`                                                                  |
+| `pnpm biome:check` / `biome:fix`                                                 | Biome lint/format                                                               |
+| `pnpm balance`                                                                   | Bot simulation: prints survival, score and spawn rates per mode                 |
+| `pnpm icons`                                                                     | Regenerate `public/` favicon, app icons and social card from the game's own art |
+| `pnpm run vr:baseline` / `vr:gate` / `vr:capture` / `vr:profile` / `vr:playtest` | Visual regression harness, see [tools/README.md](tools/README.md)               |
 
 ## Docs
 

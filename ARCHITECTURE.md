@@ -24,23 +24,23 @@ silently trusted (see the docs-rot discipline).
 
 ## Subsystems & ownership
 
-| Subsystem | Files | Owns |
-|-----------|-------|------|
-| Orchestrator | `Engine.ts` | game loop, mode state machine, scoring, spawn scheduling, collision dispatch |
-| Field | `Grid.ts` | mushroom grid, cell occupancy, reflective/psychedelic flags |
-| Player | `Player.ts` | movement state, bullets, power-up effects, ADS/fire cadence |
-| Centipede | `Centipede.ts` | segment chain, descent, splitting, touchdown |
-| Enemies | `Enemies.ts` | Spider = Larry the Scobster (chase, proximity score), Flea (mushroom drop), Gecko (poison) |
-| UFO | `UFO.ts` | bonus UFO behavior |
-| Power-ups | `PowerUp.ts` | yummy lifecycle, fall, collect/miss |
-| Render | `ProceduralSprites.ts`, `BackgroundEffects.ts`, `SidebarRenderer.ts`, `render3d/SpriteBaker.ts` | 2D canvas draw of every entity, backdrop and the score panel. Characters are 3D models baked to a sprite atlas at boot, with the 2D drawings as fallback |
-| FX | `ParticleSystem.ts`, `SparticleEffects.ts` | impact/trail/explosion particles, DOM overlay |
-| Audio | `AudioSynth.ts`, `Music.ts` | synthesized SFX (one master gain) + step-sequenced music |
-| Input | `MouseInput.ts`, engine key set, `Cheats.ts` | pointer-first (mouse, touch, pen, optional pointer lock) + keyboard and gamepad (`Gamepad.ts`); cheat words while paused |
-| Config | `GameConfig.ts`, `Constants.ts`, `GameMode.ts`, `ConfigManager.ts` | tuning, classic/enhanced rules, weapons |
-| Rules | `LifeRules.ts` | extra-life thresholds, life accounting |
-| Meta | `HighScores.ts`, `RunStats.ts`, `src/settings.ts` | top-10 table, daily seed, per-run counters, saved options |
-| UI | `App.tsx`, `components/Menu.tsx`, `components/Options.tsx`, `components/panels/` | menus and panels; one overlay at a time, and the engine ignores keys while one is open (`Engine.setUiBlocked`) |
+| Subsystem    | Files                                                                                           | Owns                                                                                                                                                     |
+| ------------ | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Orchestrator | `Engine.ts`                                                                                     | game loop, mode state machine, scoring, spawn scheduling, collision dispatch                                                                             |
+| Field        | `Grid.ts`                                                                                       | mushroom grid, cell occupancy, reflective/psychedelic flags                                                                                              |
+| Player       | `Player.ts`                                                                                     | movement state, bullets, power-up effects, ADS/fire cadence                                                                                              |
+| Centipede    | `Centipede.ts`                                                                                  | segment chain, descent, splitting, touchdown                                                                                                             |
+| Enemies      | `Enemies.ts`                                                                                    | Spider = Larry the Scobster (chase, proximity score), Flea (mushroom drop), Gecko (poison)                                                               |
+| UFO          | `UFO.ts`                                                                                        | bonus UFO behavior                                                                                                                                       |
+| Power-ups    | `PowerUp.ts`                                                                                    | yummy lifecycle, fall, collect/miss                                                                                                                      |
+| Render       | `ProceduralSprites.ts`, `BackgroundEffects.ts`, `SidebarRenderer.ts`, `render3d/SpriteBaker.ts` | 2D canvas draw of every entity, backdrop and the score panel. Characters are 3D models baked to a sprite atlas at boot, with the 2D drawings as fallback |
+| FX           | `ParticleSystem.ts`, `SparticleEffects.ts`                                                      | impact/trail/explosion particles, DOM overlay                                                                                                            |
+| Audio        | `AudioSynth.ts`, `Music.ts`                                                                     | synthesized SFX (one master gain) + step-sequenced music                                                                                                 |
+| Input        | `MouseInput.ts`, engine key set, `Cheats.ts`                                                    | pointer-first (mouse, touch, pen, optional pointer lock) + keyboard and gamepad (`Gamepad.ts`); cheat words while paused                                 |
+| Config       | `GameConfig.ts`, `Constants.ts`, `GameMode.ts`, `ConfigManager.ts`                              | tuning, classic/enhanced rules, weapons                                                                                                                  |
+| Rules        | `LifeRules.ts`                                                                                  | extra-life thresholds, life accounting                                                                                                                   |
+| Meta         | `HighScores.ts`, `RunStats.ts`, `src/settings.ts`                                               | top-10 table, daily seed, per-run counters, saved options                                                                                                |
+| UI           | `App.tsx`, `components/Menu.tsx`, `components/Options.tsx`, `components/panels/`                | menus and panels; one overlay at a time, and the engine ignores keys while one is open (`Engine.setUiBlocked`)                                           |
 
 ## Cross-subsystem vocabulary
 
