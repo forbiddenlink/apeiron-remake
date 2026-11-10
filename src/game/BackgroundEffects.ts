@@ -8,6 +8,12 @@ export class BackgroundEffects {
   private width: number
   private height: number
   private time = 0
+  private clock = 0 // seconds, drives the drifting light
+  private motion = true
+  private glow: HTMLCanvasElement | null = null
+  // Terrain-lit versions of the theme textures, keyed `${profile}:${theme}`.
+  private lit = new Map<string, HTMLCanvasElement>()
+  private useLit = true
   private energyFields: { x: number; y: number; intensity: number; radius: number }[] = []
   private xCanvas: HTMLCanvasElement
   private classicCanvas: HTMLCanvasElement
@@ -53,8 +59,33 @@ export class BackgroundEffects {
     return this.currentTheme
   }
 
+  setLit(on: boolean) {
+    this.useLit = on
+  }
+
+  // The flat theme textures, for the 3D relighting pass. Wave-1 themes first.
+  litSources(): { key: string; canvas: HTMLCanvasElement }[] {
+    const out: { key: string; canvas: HTMLCanvasElement }[] = []
+    for (const theme of BackgroundEffects.THEMES) {
+      const classic = this.classicThemeCanvases.get(theme)
+      const x = this.themeCanvases.get(theme)
+      if (classic) out.push({ key: `classic:${theme}`, canvas: classic })
+      if (x) out.push({ key: `x:${theme}`, canvas: x })
+    }
+    return out
+  }
+
+  addLit(key: string, canvas: HTMLCanvasElement) {
+    this.lit.set(key, canvas)
+  }
+
+  setMotion(on: boolean) {
+    this.motion = on
+  }
+
   update(dt: number, intensity = 1) {
     this.time += dt * Math.max(0.2, intensity * 0.2)
+    if (this.motion) this.clock += dt
 
     for (let i = this.energyFields.length - 1; i >= 0; i--) {
       const field = this.energyFields[i]
@@ -64,8 +95,13 @@ export class BackgroundEffects {
     }
   }
 
+  // Backdrop only, in screen pixels. Energy rings are drawn separately, inside
+  // the scaled field, because their positions are in field units.
   draw() {
     this.drawFieldBackground()
+  }
+
+  drawEnergy() {
     this.drawEnergyFields()
   }
 
@@ -89,11 +125,16 @@ export class BackgroundEffects {
         ? this.classicThemeCanvases.get(this.currentTheme)
         : this.themeCanvases.get(this.currentTheme)
 
-    if (themeCanvas) {
+    const litCanvas = this.useLit ? this.lit.get(`${this.profile}:${this.currentTheme}`) : null
+    if (litCanvas) {
+      this.ctx.drawImage(litCanvas, 0, 0, this.width, this.height)
+    } else if (themeCanvas) {
       this.ctx.drawImage(themeCanvas, 0, 0)
     } else {
       this.ctx.drawImage(this.profile === 'classic' ? this.classicCanvas : this.xCanvas, 0, 0)
     }
+
+    this.drawDriftingLight()
 
     this.ctx.save()
     this.ctx.globalCompositeOperation = 'soft-light'
@@ -125,6 +166,42 @@ export class BackgroundEffects {
     this.ctx.fillStyle = vignette
     this.ctx.fillRect(0, 0, this.width, this.height)
     this.ctx.restore()
+  }
+
+  // Slow pools of light and shade wandering over the backdrop, so the field is
+  // never a frozen texture. One pre-rendered soft disc, drawn a few times.
+  private drawDriftingLight() {
+    if (!this.motion) return
+    if (!this.glow) {
+      const size = 256
+      const disc = document.createElement('canvas')
+      disc.width = size
+      disc.height = size
+      const d = disc.getContext('2d')
+      if (d) {
+        const grad = d.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
+        grad.addColorStop(0, 'rgba(255,255,255,1)')
+        grad.addColorStop(0.55, 'rgba(255,255,255,0.35)')
+        grad.addColorStop(1, 'rgba(255,255,255,0)')
+        d.fillStyle = grad
+        d.fillRect(0, 0, size, size)
+      }
+      this.glow = disc
+    }
+    const t = this.clock
+    const strength = this.profile === 'classic' ? 0.22 : 0.34
+    const ctx = this.ctx
+    ctx.save()
+    ctx.globalCompositeOperation = 'soft-light'
+    for (let i = 0; i < 5; i++) {
+      const phase = i * 1.7
+      const cx = this.width * (0.5 + 0.42 * Math.sin(t * (0.05 + i * 0.011) + phase))
+      const cy = this.height * (0.5 + 0.42 * Math.cos(t * (0.041 + i * 0.013) + phase * 1.3))
+      const r = this.width * (0.32 + 0.08 * Math.sin(t * 0.07 + phase))
+      ctx.globalAlpha = strength * (0.7 + 0.3 * Math.sin(t * 0.09 + phase * 2))
+      ctx.drawImage(this.glow, cx - r, cy - r, r * 2, r * 2)
+    }
+    ctx.restore()
   }
 
   private drawEnergyFields() {

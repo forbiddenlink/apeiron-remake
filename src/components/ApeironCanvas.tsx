@@ -1,54 +1,57 @@
-import React, { useEffect, useRef } from 'react'
-import { Engine } from '../game/Engine'
+import { useEffect, useRef } from 'react'
+import { Engine, type EngineSnapshot } from '../game/Engine'
 import { sparticleEffects } from '../game/SparticleEffects'
-import type { GameSettings } from './Options'
+import type { GameSettings } from '../settings'
 
 interface ApeironCanvasProps {
   width: number
   height: number
-  gameState: {
-    mode: 'title' | 'playing' | 'pause' | 'gameover'
-    score: number
-    highScore: number
-    level: number
-  }
-  onGameStateUpdate: (state: ApeironCanvasProps['gameState']) => void
   settings: GameSettings
+  // Device pixels per logical game pixel (devicePixelRatio times the frame scale).
+  pixelRatio: number
+  // True while a menu panel is open and owns the keyboard.
+  uiBlocked: boolean
+  onSnapshot: (state: EngineSnapshot) => void
+  onEngine: (engine: Engine | null) => void
 }
 
 export function ApeironCanvas({
   width,
   height,
-  gameState,
-  onGameStateUpdate,
   settings,
+  pixelRatio,
+  uiBlocked,
+  onSnapshot,
+  onEngine,
 }: ApeironCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const ref = useRef<HTMLCanvasElement | null>(null)
   const engineRef = useRef<Engine | null>(null)
+  const levelRef = useRef(1)
+  // Latest callbacks and settings without re-creating the engine.
+  const onSnapshotRef = useRef(onSnapshot)
+  onSnapshotRef.current = onSnapshot
+  const settingsRef = useRef(settings)
+  settingsRef.current = settings
+  const pixelRatioRef = useRef(pixelRatio)
+  pixelRatioRef.current = pixelRatio
 
-  // Initialize Sparticle background effects
+  // Sparticle background effects (Apeiron X only)
   useEffect(() => {
     if (!containerRef.current) return
     sparticleEffects.attach(containerRef.current)
-    sparticleEffects.setIntensity(settings.particleDensity)
-    sparticleEffects.setEnabled(settings.gameMode !== 'classic')
-
+    sparticleEffects.setIntensity(settingsRef.current.particleDensity)
+    sparticleEffects.setEnabled(settingsRef.current.gameMode !== 'classic')
     return () => sparticleEffects.detach()
   }, [])
 
-  // Update sparticle settings when they change
   useEffect(() => {
     sparticleEffects.setIntensity(settings.particleDensity)
     sparticleEffects.setEnabled(settings.gameMode !== 'classic')
   }, [settings.particleDensity, settings.gameMode])
 
-  // Update sparticle theme based on level
-  useEffect(() => {
-    sparticleEffects.setThemeFromWave(gameState.level)
-  }, [gameState.level])
-
-  // Initialize engine
+  // Engine lifetime
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the engine is rebuilt only if the frame size changes
   useEffect(() => {
     if (!ref.current) return
     const engine = new Engine(ref.current, width, height)
@@ -60,48 +63,45 @@ export function ApeironCanvas({
       ;(window as unknown as { __apeironEngine?: Engine }).__apeironEngine = engine
     }
 
-    // Set up game state sync
     engine.onStateChange = (state) => {
-      onGameStateUpdate({
-        mode: state.mode,
-        score: state.score,
-        highScore: state.highScore,
-        level: state.level,
-      })
+      if (state.level !== levelRef.current) {
+        levelRef.current = state.level
+        sparticleEffects.setThemeFromWave(state.level)
+      }
+      onSnapshotRef.current(state)
     }
-    onGameStateUpdate({
+    engine.updateSettings(settingsRef.current)
+    engine.setPixelRatio(pixelRatioRef.current)
+    onEngine(engine)
+    onSnapshotRef.current({
       mode: engine.mode,
       score: engine.score,
       highScore: engine.highScore,
       level: engine.level,
+      seed: engine.seed,
+      cheated: engine.cheated,
+      stats: engine.stats,
     })
 
-    // Start engine
     engine.start()
-    return () => engine.destroy()
+    return () => {
+      engine.destroy()
+      engineRef.current = null
+      onEngine(null)
+    }
   }, [width, height])
 
-  // Handle game state changes
   useEffect(() => {
-    if (!engineRef.current) return
-
-    // Update engine mode
-    if (gameState.mode === 'playing') {
-      if (engineRef.current.mode === 'title' || engineRef.current.mode === 'gameover') {
-        engineRef.current.startNewGame()
-      } else if (engineRef.current.mode === 'pause') {
-        engineRef.current.resume()
-      }
-    } else if (gameState.mode === 'pause' && engineRef.current.mode === 'playing') {
-      engineRef.current.pause()
-    }
-  }, [gameState.mode])
-
-  // Handle settings changes
-  useEffect(() => {
-    if (!engineRef.current) return
-    engineRef.current.updateSettings(settings)
+    engineRef.current?.updateSettings(settings)
   }, [settings])
+
+  useEffect(() => {
+    engineRef.current?.setPixelRatio(pixelRatio)
+  }, [pixelRatio])
+
+  useEffect(() => {
+    engineRef.current?.setUiBlocked(uiBlocked)
+  }, [uiBlocked])
 
   return (
     <div
@@ -117,12 +117,18 @@ export function ApeironCanvas({
         ref={ref}
         width={width}
         height={height}
+        aria-label="Apeiron playfield"
         style={{
+          display: 'block',
+          width,
+          height,
           background: '#101010',
           border: 'none',
           boxShadow: 'none',
           position: 'relative',
           zIndex: 1,
+          touchAction: 'none',
+          userSelect: 'none',
         }}
       />
     </div>

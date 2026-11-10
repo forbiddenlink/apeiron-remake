@@ -9,6 +9,18 @@ function ac(): AudioContext | null {
   return ctx
 }
 
+// Every effect goes through one gain node so the SFX Volume option works.
+let master: GainNode | null = null
+let masterVolume = 0.8
+function out(a: AudioContext): AudioNode {
+  if (!master) {
+    master = a.createGain()
+    master.gain.value = masterVolume
+    master.connect(a.destination)
+  }
+  return master
+}
+
 // Enhanced oscillator with frequency modulation
 function fmOsc(
   freq: number,
@@ -38,7 +50,7 @@ function fmOsc(
 
   modulator.connect(modGain)
   modGain.connect(carrier.frequency)
-  carrier.connect(mainGain).connect(a.destination)
+  carrier.connect(mainGain).connect(out(a))
 
   carrier.start(t0)
   modulator.start(t0)
@@ -78,7 +90,7 @@ function noise(duration: number, volume = 0.1, filter: 'white' | 'pink' | 'brown
   gain.gain.setValueAtTime(volume, t0)
   gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration)
 
-  source.connect(gain).connect(a.destination)
+  source.connect(gain).connect(out(a))
   source.start(t0)
 }
 
@@ -268,10 +280,16 @@ export const sfx = {
     noise(0.08, 0.08, 'white')
   },
 
-  // Volume control
+  // Crystal shattered
+  death() {
+    noise(0.35, 0.16, 'brown')
+    fmOsc(520, 60, 200, 0.45, 'sawtooth', 0.2)
+    setTimeout(() => fmOsc(180, 40, 90, 0.5, 'triangle', 0.18), 120)
+  },
+
+  // Volume control, 0 to 1
   setVolume(volume: number) {
-    // Volume is 0-100, convert to 0-1
-    const v = Math.max(0, Math.min(1, volume / 100))
-    // TODO: Implement per-sound volume control
+    masterVolume = Math.max(0, Math.min(1, volume))
+    if (master) master.gain.value = masterVolume
   },
 }

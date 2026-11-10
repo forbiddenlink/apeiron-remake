@@ -1,6 +1,12 @@
 export const CELL = 16 // px
-export const COLS = 37 // Apeiron X-style field width: 592/16 (sidebar occupies remaining canvas width)
-export const ROWS = 37 // Apeiron X-style field height: 592/16
+// The field is a 25 x 25 grid of 16-unit cells (400 x 400 logical units), drawn
+// scaled up to fill the 592-pixel playfield, so a cell is about 24 screen pixels.
+// It used to be 37 x 37 at 16 screen pixels, which made everything tiny.
+export const COLS = 25
+export const ROWS = 25
+// Speeds were tuned on the 37-column field. Multiplying by this keeps the time
+// to cross the field the same on the coarser grid.
+export const GRID_RATIO = COLS / 37
 export const PLAYER_ROWS = 4 // player zone rows at bottom
 
 export const SCORE = {
@@ -76,16 +82,18 @@ export const EXTRA_LIFE_STEP = 20000 // classic Apeiron FAQ: every 20k
 
 // base speeds (cells/sec or px/sec)
 export const SPEED = {
-  CENTIPEDE_CELLS_PER_SEC: 8,
-  BULLET_PX_PER_SEC: 640,
-  PLAYER_PX_PER_SEC: 360, // Increased for snappier response
+  // Slower than a straight GRID_RATIO scale: with fewer rows the Pentipede would
+  // otherwise reach the bottom much sooner than before.
+  CENTIPEDE_CELLS_PER_SEC: 4.6,
+  BULLET_PX_PER_SEC: 640 * GRID_RATIO,
+  PLAYER_PX_PER_SEC: 360 * GRID_RATIO,
   PLAYER_ACCEL: 2400, // Units per second^2
   PLAYER_DECEL: 1800, // Units per second^2
   PLAYER_VERTICAL_MULT: 0.85, // Vertical movement multiplier
-  SPIDER_PX_PER_SEC_X: 130, // Slightly slower for better gameplay
-  SPIDER_PX_PER_SEC_Y: 95,
-  FLEA_PX_PER_SEC_Y: 220,
-  GECKO_PX_PER_SEC_X: 140,
+  SPIDER_PX_PER_SEC_X: 130 * GRID_RATIO,
+  SPIDER_PX_PER_SEC_Y: 95 * GRID_RATIO,
+  FLEA_PX_PER_SEC_Y: 220 * GRID_RATIO,
+  GECKO_PX_PER_SEC_X: 140 * GRID_RATIO,
 } as const
 
 export const TIMERS = {
@@ -105,8 +113,10 @@ export const TIMERS = {
 
 // Reflected bullet settings (high difficulty waves)
 export const REFLECTED_BULLET = {
-  SPEED_MULTIPLIER: 2.0, // Reflected bullets move 2x faster
-  START_WAVE: 15, // First wave with reflective mushrooms
+  SPEED_MULTIPLIER: 2.0, // Enhanced: reflected bullets move 2x faster
+  // Classic: reviews of the 1995 game say the shot comes back at its own speed.
+  CLASSIC_SPEED_MULTIPLIER: 1.0,
+  START_WAVE: 15, // First wave with reflective mushrooms (remake calibration)
   CHANCE_PER_WAVE: 0.015, // Additional chance per wave after START_WAVE
   MAX_CHANCE: 0.12, // Maximum 12% of mushrooms reflective
 } as const
@@ -137,12 +147,13 @@ export const COINS = {
   DROP_CHANCE: 0.15, // 15% chance on enemy kill
   FRENZY_CHANCE: 0.08, // 8% chance to trigger frenzy
   FRENZY_COUNT: 30, // Coins in a frenzy
-  FALL_SPEED: 180, // Pixels per second
+  FALL_SPEED: 180 * GRID_RATIO, // Units per second
   MAX_ACTIVE: 50, // Maximum coins on screen
 } as const
 
 export const DENSITY = {
-  PLAYER_ROWS_MIN_MUSHES: 5, // if fewer than this across last PLAYER_ROWS, spawn Flea
+  // If fewer than this in the watched bottom band (GameMode.fleaWatchRows), spawn a Flea
+  PLAYER_ROWS_MIN_MUSHES: 5,
 } as const
 
 export const VISUAL = {
@@ -173,7 +184,10 @@ export const POWERUPS = {
   DIAMOND_FADE_ALPHA: 0.5,
 
   // Spawn settings ("Yummies")
-  SPAWN_CHANCE: 0.2, // 20% chance for enemies to drop Yummies
+  SPAWN_CHANCE: 0.2, // Enhanced only: 20% chance for enemies to drop Yummies
+  // Reviews of the 1995 game say Yummy coins drop when a mushroom is destroyed.
+  // The rate is remake calibration, not a documented value.
+  MUSHROOM_DROP_CHANCE: 0.08,
   MAX_ACTIVE: 2, // Maximum number of Yummies active at once
   FADE_TIME: 0.5, // Time for Yummies to fade in/out
   FLOAT_AMPLITUDE: 4, // Pixels to float up/down

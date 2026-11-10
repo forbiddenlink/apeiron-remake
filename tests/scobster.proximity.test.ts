@@ -32,3 +32,19 @@ describe('Larry the Scobster proximity score', () => {
     expect(getScobsterScore(getScobsterDistance(player, diagonal))).toBe(SCORE.SCOBSTER_MED)
   })
 })
+
+describe('Larry the Scobster entry side', () => {
+  it('comes in from the side away from the player', async () => {
+    const { Spider } = await import('../src/game/Enemies')
+    const { GRID } = await import('../src/game/GameConfig')
+    const width = GRID.COLS * GRID.CELL
+    for (const roll of [0.1, 0.9]) {
+      const nearLeft = new Spider(1, () => roll, 20)
+      expect(nearLeft.x).toBe(width)
+      expect(nearLeft.vx).toBeLessThan(0)
+      const nearRight = new Spider(1, () => roll, width - 20)
+      expect(nearRight.x).toBeLessThan(0)
+      expect(nearRight.vx).toBeGreaterThan(0)
+    }
+  })
+})

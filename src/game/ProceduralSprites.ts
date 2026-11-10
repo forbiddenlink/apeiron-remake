@@ -86,7 +86,9 @@ export function drawMushroom(
   profile: VisualProfile = 'x',
   reflective = false,
   psychedelic = false,
-  time = 0
+  time = 0,
+  // Light outline for dark backdrops, where the cap colors would sink into the field.
+  rim: string | null = null
 ) {
   const px = snap(x)
   const py = snap(y)
@@ -149,6 +151,11 @@ export function drawMushroom(
   g.quadraticCurveTo(cx, capY + 2.45, cx - 4.5, capY + 0.15)
   g.closePath()
   g.fill()
+  if (rim) {
+    g.strokeStyle = rim
+    g.lineWidth = 2.1
+    g.stroke()
+  }
   g.strokeStyle = capEdge
   g.lineWidth = 0.92
   g.stroke()
@@ -196,6 +203,13 @@ export function drawMushroom(
     g.beginPath()
     g.ellipse(cx + 1.35, capY - 0.25, 1.2, 0.5, 0.16, 0, Math.PI * 2)
     g.fill()
+    // Spots, so poison does not depend on telling two cap colors apart.
+    g.fillStyle = 'rgba(20, 6, 4, 0.85)'
+    g.beginPath()
+    g.ellipse(cx - 2.3, capY - 0.6, 0.62, 0.62, 0, 0, Math.PI * 2)
+    g.ellipse(cx + 0.1, capY - 1.45, 0.62, 0.62, 0, 0, Math.PI * 2)
+    g.ellipse(cx + 2.4, capY - 0.6, 0.62, 0.62, 0, 0, Math.PI * 2)
+    g.fill()
   }
 
   if (hp < 4) {
@@ -217,12 +231,19 @@ export function drawSegment(
   x: number,
   y: number,
   head: boolean,
-  profile: VisualProfile = 'x'
+  profile: VisualProfile = 'x',
+  stride = 0
 ) {
   const px = snap(x)
   const py = snap(y)
   const cx = px + CELL * 0.5
   const cy = py + 8.15
+  // Walk cycle: the two sneakers swing in opposite directions once per step.
+  const swing = Math.sin(stride * Math.PI * 2)
+  const footL = swing * 1.3
+  const footR = -swing * 1.3
+  const liftL = Math.max(0, swing) * 0.8
+  const liftR = Math.max(0, -swing) * 0.8
   const tone = coordNoise(px * 0.21, py * 0.17)
   const bodyWobble = (tone - 0.5) * 0.4
   const bodyDark = head
@@ -256,13 +277,13 @@ export function drawSegment(
   // Little feet/sneakers for each segment (Cheech wears sneakers!)
   g.fillStyle = '#1a1a1a'
   g.beginPath()
-  g.ellipse(cx - 3.5, py + 12.5, 1.8, 1.0, 0.2, 0, Math.PI * 2)
-  g.ellipse(cx + 3.5, py + 12.5, 1.8, 1.0, -0.2, 0, Math.PI * 2)
+  g.ellipse(cx - 3.5 + footL, py + 12.5 - liftL, 1.8, 1.0, 0.2, 0, Math.PI * 2)
+  g.ellipse(cx + 3.5 + footR, py + 12.5 - liftR, 1.8, 1.0, -0.2, 0, Math.PI * 2)
   g.fill()
   g.fillStyle = '#ffffff'
   g.beginPath()
-  g.ellipse(cx - 3.5, py + 12.2, 0.8, 0.4, 0, 0, Math.PI * 2)
-  g.ellipse(cx + 3.5, py + 12.2, 0.8, 0.4, 0, 0, Math.PI * 2)
+  g.ellipse(cx - 3.5 + footL, py + 12.2 - liftL, 0.8, 0.4, 0, 0, Math.PI * 2)
+  g.ellipse(cx + 3.5 + footR, py + 12.2 - liftR, 0.8, 0.4, 0, 0, Math.PI * 2)
   g.fill()
 
   // Body
@@ -836,13 +857,119 @@ export function drawGecko(g: CanvasRenderingContext2D, x: number, y: number, w: 
   g.fill()
 }
 
+// The player is a crystal shard: a cut gem with a plasma emitter on top. Facets
+// are flat-shaded so it reads as a crystal at 16 px, and a glint sweeps across.
+function drawCrystal(
+  g: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  py: number,
+  h: number,
+  time: number
+) {
+  g.fillStyle = 'rgba(0,0,0,0.27)'
+  g.beginPath()
+  g.ellipse(cx, py + h - 0.35, 6.5, 1.85, 0, 0, Math.PI * 2)
+  g.fill()
+
+  const top = cy - 7.4
+  const girdle = cy - 1.6
+  const bottom = cy + 5.4
+  const halfW = 6.6
+  const tableW = 3.4
+
+  // Crown (upper facets)
+  g.fillStyle = '#bafcff'
+  g.beginPath()
+  g.moveTo(cx - tableW, top)
+  g.lineTo(cx + tableW, top)
+  g.lineTo(cx + halfW, girdle)
+  g.lineTo(cx - halfW, girdle)
+  g.closePath()
+  g.fill()
+  g.fillStyle = '#6fe3f2'
+  g.beginPath()
+  g.moveTo(cx - tableW, top)
+  g.lineTo(cx - halfW, girdle)
+  g.lineTo(cx - 1.6, girdle)
+  g.closePath()
+  g.fill()
+  g.fillStyle = '#e9ffff'
+  g.beginPath()
+  g.moveTo(cx + tableW, top)
+  g.lineTo(cx + halfW, girdle)
+  g.lineTo(cx + 1.6, girdle)
+  g.closePath()
+  g.fill()
+
+  // Pavilion (lower facets)
+  g.fillStyle = '#2a90af'
+  g.beginPath()
+  g.moveTo(cx - halfW, girdle)
+  g.lineTo(cx, bottom)
+  g.lineTo(cx - 1.6, girdle)
+  g.closePath()
+  g.fill()
+  g.fillStyle = '#3fb7d4'
+  g.beginPath()
+  g.moveTo(cx - 1.6, girdle)
+  g.lineTo(cx, bottom)
+  g.lineTo(cx + 1.6, girdle)
+  g.closePath()
+  g.fill()
+  g.fillStyle = '#1c6f8f'
+  g.beginPath()
+  g.moveTo(cx + 1.6, girdle)
+  g.lineTo(cx, bottom)
+  g.lineTo(cx + halfW, girdle)
+  g.closePath()
+  g.fill()
+
+  // Outline
+  g.strokeStyle = '#0f3f57'
+  g.lineWidth = 0.9
+  g.beginPath()
+  g.moveTo(cx - tableW, top)
+  g.lineTo(cx + tableW, top)
+  g.lineTo(cx + halfW, girdle)
+  g.lineTo(cx, bottom)
+  g.lineTo(cx - halfW, girdle)
+  g.closePath()
+  g.stroke()
+
+  // Glint sweeping across the crown every couple of seconds
+  const sweep = (time * 0.55) % 1
+  if (sweep < 0.35) {
+    const gx = cx - halfW + (sweep / 0.35) * halfW * 2
+    g.strokeStyle = 'rgba(255,255,255,0.85)'
+    g.lineWidth = 1
+    g.beginPath()
+    g.moveTo(gx - 1.2, girdle - 0.4)
+    g.lineTo(gx + 1.0, top + 0.6)
+    g.stroke()
+  }
+
+  // Plasma emitter
+  g.fillStyle = '#1f5e89'
+  g.beginPath()
+  g.roundRect(cx - 1.1, py - 4.4, 2.2, top - (py - 4.4) + 0.8, 0.95)
+  g.fill()
+  g.fillStyle = '#8ff9ff'
+  g.fillRect(cx - 0.82, py - 3.2, 1.64, 2.0)
+  g.fillStyle = '#ffad64'
+  g.beginPath()
+  g.ellipse(cx, py - 4.8, 0.62, 0.8, 0, 0, Math.PI * 2)
+  g.fill()
+}
+
 export function drawPlayer(
   g: CanvasRenderingContext2D,
   x: number,
   y: number,
   w: number,
   h: number,
-  profile: VisualProfile = 'x'
+  profile: VisualProfile = 'x',
+  time = 0
 ) {
   const px = snap(x)
   const py = snap(y)
@@ -850,33 +977,7 @@ export function drawPlayer(
   const cy = py + h * 0.6
 
   if (profile === 'classic') {
-    g.fillStyle = 'rgba(0,0,0,0.27)'
-    g.beginPath()
-    g.ellipse(cx, py + h - 0.35, 6.5, 1.85, 0, 0, Math.PI * 2)
-    g.fill()
-
-    g.fillStyle = radial(g, cx - 1.75, cy - 2.0, 0.6, 8.7, '#92fff6', '#2a90af')
-    g.beginPath()
-    g.ellipse(cx, cy, 6.35, 4.95, 0, 0, Math.PI * 2)
-    g.fill()
-    g.strokeStyle = '#134d66'
-    g.stroke()
-
-    g.fillStyle = '#d8ffff'
-    g.beginPath()
-    g.ellipse(cx - 1.9, cy - 1.8, 2.1, 0.92, -0.2, 0, Math.PI * 2)
-    g.fill()
-
-    g.fillStyle = '#1f5e89'
-    g.beginPath()
-    g.roundRect(cx - 1.1, py - 5.55, 2.2, 6.75, 0.95)
-    g.fill()
-    g.fillStyle = '#8ff9ff'
-    g.fillRect(cx - 0.82, py - 3.95, 1.64, 2.26)
-    g.fillStyle = '#ffad64'
-    g.beginPath()
-    g.ellipse(cx, py - 5.95, 0.62, 0.8, 0, 0, Math.PI * 2)
-    g.fill()
+    drawCrystal(g, cx, cy, py, h, time)
     return
   }
 

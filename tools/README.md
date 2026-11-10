@@ -64,3 +64,11 @@ can't hide. Current boot stall ~2s is a real optimization target.
 - `tools/artifacts/` is git-ignored (run outputs). `tools/baselines/` is committed.
 - If a teammate on a different OS needs the gate, they regenerate baselines on
   their machine (`pnpm run vr:baseline`) — treat baselines as per-environment.
+
+## Icons and social card
+
+`pnpm icons` (`tools/make-icons.mjs`) regenerates `public/favicon.png`,
+`icon-192.png`, `icon-512.png` and `og-image.png`. It starts a Vite dev server,
+draws with the real `Engine` and sprite code in a headless page, and screenshots
+the canvas, so the images always match the game. `tools/blank.html` is the empty
+page it draws into.
