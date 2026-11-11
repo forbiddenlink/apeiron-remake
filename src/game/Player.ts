@@ -86,6 +86,7 @@ export class Player {
   alive = true
   bullets: Bullet[] = Array.from({ length: 24 }, () => new Bullet())
   flashT = 0
+  shotsFired = 0
 
   autofireTime = 0
   phaseShiftActive = false
@@ -174,6 +175,7 @@ export class Player {
     const allowMultiShot = this.autofireTime > 0 || this.hasPowerUp('machine_gun')
     if (!allowMultiShot && this.bullets.some((b) => b.active)) return
     this.spawnBullet(0)
+    this.shotsFired++
 
     this.flashT = XQJ37_BLASTER.MUZZLE_FLASH_TIME
     sfx.shoot()

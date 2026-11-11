@@ -109,3 +109,52 @@ remain remake calibration targets; the FAQ does not establish those values.
    - mode-specific scoring and pacing.
 2. Tune spawn timing and speed curves to match observed classic pacing.
 3. Keep modern visuals/sound as presentation-only enhancements (no gameplay drift in Classic profile).
+
+## Playability and fidelity pass (2026-11-10)
+
+Sources for this pass are reviewer accounts, not the manual: a Mac OS 9 replay
+review (overclockworked.neocities.org/macos/apeiron/), the ATPM review of
+Apeiron X (atpm.com/11.03/apeironx.shtml) and Lucy Snyder's review
+(lucysnyder.com/index.php/game-review-apeiron).
+
+Changed:
+- Yummies drop from destroyed mushrooms (the replay review says so directly).
+  Classic no longer drops them from enemy kills; Enhanced keeps both. The 8% rate
+  is calibration.
+- Reflecting mushrooms are in both modes. The replay review and ATPM both describe
+  them as part of the original. Classic returns the shot at its own speed (replay
+  review); Enhanced keeps 2x. Start wave 15 is still calibration. Options has a
+  toggle.
+- Cheat words while paused with Caps Lock (Snyder lists the words and effects).
+  PERNTS adds 1000: the review gives no amount.
+- Wave counter shows two digits and wraps after 99 (replay review).
+- Reduce Flashing option. The replay review notes Apeiron X had a switch for the
+  rainbow flash.
+- Flea trigger: the density check counted only the player zone, which is never
+  seeded or planted, so it was true forever (30 fleas a minute on wave 1). It now
+  watches the zone plus the same number of rows above it.
+- Death: one hit costs one life. Shatter freeze, then respawn with a short
+  invulnerable window and Larry, Groucho, Gordon and the ship cleared. Whether the
+  original restored or cleared anything on death is not established.
+
+Not changed, and why:
+- Coin frenzy stays Enhanced-only. Reviews describe coin bursts in the original,
+  but not what the burst coins award, so there is nothing to implement faithfully yet.
+- Larry does not eat mushrooms. Only ATPM says he does, and the same paragraph
+  describes Groucho differently from the replay review.
+- No voice clips or hookah game-over art. Both need new original assets.
+
+## Visual and grid pass (2026-11-10)
+
+- Characters are 3D models baked to sprites (`src/game/render3d/`). Backdrops are
+  the old textures relit as terrain.
+- The grid went from 37 x 37 to 25 x 25 so everything is about half again as large
+  on screen. Speeds are scaled by 25/37 to keep crossing times. The Pentipede is
+  slowed further (4.6 cells/s) because with fewer rows it would otherwise reach
+  the bottom sooner. Bot survival was about the same before and after (median 35 s
+  vs 31 s in Classic; the bot is weak and mostly dies to Larry).
+- Gordon's Classic spawn gap went from 6-12 s to 14-26 s (floor 8-14 s). The bot
+  simulation showed 5 to 6 geckos a minute on wave 1. No source gives the original
+  rate; this is remake tuning.
+- Still uncalibrated against the original: the grid dimensions themselves, every
+  spawn window except Larry's, and the Yummy drop rate.

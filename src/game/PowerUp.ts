@@ -1,4 +1,4 @@
-import { CELL, POWERUP_COLORS, POWERUPS, ROWS } from './Constants'
+import { CELL, GRID_RATIO, POWERUP_COLORS, POWERUPS, ROWS } from './Constants'
 import type { PowerUpType } from './Player'
 import type { Rect } from './Types'
 
@@ -9,7 +9,8 @@ export class PowerUp {
   private t = 0
   private phase: number
   private driftX = 0
-  private verticalSpeed = 18
+  // Coins now start wherever a mushroom was destroyed, often high in the field.
+  private verticalSpeed = 36 * GRID_RATIO
 
   constructor(
     public x: number,
@@ -34,10 +35,12 @@ export class PowerUp {
   // A shot knocks a Yummy coin back out of the field, matching the original
   // game's risk that shooting a coin can waste its power-up.
   deflect(): void {
-    this.verticalSpeed = -220
+    this.verticalSpeed = -220 * GRID_RATIO
   }
 
-  draw(g: CanvasRenderingContext2D) {
+  // body: draws a pre-rendered coin at (0, 0) and returns true if it did; squash
+  // is how edge-on that coin is, so the type mark turns with it.
+  draw(g: CanvasRenderingContext2D, body?: () => boolean, squash = 1) {
     const color = POWERUP_COLORS[this.type]
     const pulse = 0.65 + Math.sin(this.t * 6 + this.phase) * 0.15
     const cx = this.x + this.w / 2
@@ -57,6 +60,12 @@ export class PowerUp {
     // In Apeiron, power-ups are Yummy coins. Keep the type mark so the
     // procedural remake remains readable without copying the original art.
     g.globalAlpha = 1
+    if (body?.()) {
+      g.scale(Math.max(0.2, squash), 1)
+      this.drawTypeMark(g)
+      g.restore()
+      return
+    }
     g.fillStyle = '#51350a'
     g.beginPath()
     g.arc(0, 0, r + 1, 0, Math.PI * 2)
@@ -141,7 +150,7 @@ export class PowerUp {
         g.font = `700 ${s * 2.1}px Georgia, serif`
         g.textAlign = 'center'
         g.textBaseline = 'middle'
-        g.fillText('×2', 0, 0)
+        g.fillText(`×${POWERUPS.BONUS_MULTIPLIER}`, 0, 0)
         break
       default:
         break

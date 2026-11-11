@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { GRID, PLAYER } from '../src/game/GameConfig'
-import { clampMouseTarget, getMouseVelocity } from '../src/game/MouseInput'
+import { clampMouseTarget, getMouseVelocity, MOUSE_FOLLOW_MULT } from '../src/game/MouseInput'
 
 describe('Mouse movement vector', () => {
   it('continues toward the cursor until the player arrives', () => {
@@ -8,7 +8,9 @@ describe('Mouse movement vector', () => {
 
     expect(velocity.arrived).toBe(false)
     expect(velocity.vx).toBe(0)
-    expect(velocity.vy).toBe(-PLAYER.MOVEMENT.BASE_SPEED * PLAYER.MOVEMENT.VERTICAL_MULT)
+    expect(velocity.vy).toBe(
+      -PLAYER.MOVEMENT.BASE_SPEED * MOUSE_FOLLOW_MULT * PLAYER.MOVEMENT.VERTICAL_MULT
+    )
   })
 
   it('stops only once the player reaches the cursor', () => {
@@ -29,6 +31,22 @@ describe('Mouse movement vector', () => {
       vy: 0,
       arrived: true,
     })
+  })
+
+  it('catches up with a flick across the whole field in about half a second', () => {
+    const width = GRID.COLS * GRID.CELL
+    let x = 0
+    let frames = 0
+    while (frames < 600) {
+      const v = getMouseVelocity(x, 300, width, 300, 1 / 60)
+      x += v.vx / 60
+      frames++
+      if (v.arrived) break
+    }
+    expect(frames / 60).toBeLessThan(0.55)
+    // ...without moving far enough in one tick to skip over a mushroom cell.
+    const perTick = (PLAYER.MOVEMENT.BASE_SPEED * MOUSE_FOLLOW_MULT) / 60
+    expect(perTick).toBeLessThan(GRID.CELL + PLAYER.SIZE.WIDTH)
   })
 
   it('clamps the cursor to reachable player-center bounds', () => {

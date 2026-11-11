@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { PSYCHEDELIC, REFLECTED_BULLET } from '../src/game/Constants'
+import { POWERUPS, PSYCHEDELIC, REFLECTED_BULLET } from '../src/game/Constants'
 import {
+  enemiesDropYummies,
+  getReflectedSpeedMultiplier,
   spawnsCoins,
   spawnsTouchdownFriends,
   usesPsychedelicMushrooms,
@@ -21,16 +23,33 @@ describe('Classic mode fidelity', () => {
     }
   })
 
-  it('never uses reflective mushrooms in classic mode, at any wave', () => {
-    for (const level of [1, REFLECTED_BULLET.START_WAVE, REFLECTED_BULLET.START_WAVE + 5, 40]) {
-      expect(usesReflectiveMushrooms(level, 'classic')).toBe(false)
+  // Two independent reviews of the original describe late-game mushrooms that
+  // bounce the shot back, so reflecting mushrooms are not Enhanced-only.
+  it('uses reflective mushrooms in both modes from START_WAVE onward', () => {
+    for (const mode of ['classic', 'enhanced'] as const) {
+      expect(usesReflectiveMushrooms(REFLECTED_BULLET.START_WAVE - 1, mode)).toBe(false)
+      expect(usesReflectiveMushrooms(REFLECTED_BULLET.START_WAVE, mode)).toBe(true)
+      expect(usesReflectiveMushrooms(REFLECTED_BULLET.START_WAVE + 10, mode)).toBe(true)
     }
   })
 
-  it('uses reflective mushrooms in enhanced mode only from START_WAVE onward', () => {
-    expect(usesReflectiveMushrooms(REFLECTED_BULLET.START_WAVE - 1, 'enhanced')).toBe(false)
-    expect(usesReflectiveMushrooms(REFLECTED_BULLET.START_WAVE, 'enhanced')).toBe(true)
-    expect(usesReflectiveMushrooms(REFLECTED_BULLET.START_WAVE + 10, 'enhanced')).toBe(true)
+  it('never uses reflective mushrooms when the player turns them off', () => {
+    for (const mode of ['classic', 'enhanced'] as const) {
+      for (const level of [1, REFLECTED_BULLET.START_WAVE, 40]) {
+        expect(usesReflectiveMushrooms(level, mode, false)).toBe(false)
+      }
+    }
+  })
+
+  it('returns a reflected shot at its own speed in classic and faster in enhanced', () => {
+    expect(getReflectedSpeedMultiplier('classic')).toBe(1)
+    expect(getReflectedSpeedMultiplier('enhanced')).toBeGreaterThan(1)
+  })
+
+  it('drops Yummies from enemies only in enhanced; classic gets them from mushrooms', () => {
+    expect(enemiesDropYummies('classic')).toBe(false)
+    expect(enemiesDropYummies('enhanced')).toBe(true)
+    expect(POWERUPS.MUSHROOM_DROP_CHANCE).toBeGreaterThan(0)
   })
 
   it('spawns reinforcements after a touchdown in both modes', () => {

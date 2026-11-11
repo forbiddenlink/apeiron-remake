@@ -1,6 +1,7 @@
 import { sfx } from './AudioSynth'
 import { BackgroundEffects } from './BackgroundEffects'
-import { Centipede } from './Centipede'
+import { Centipede, type Segment } from './Centipede'
+import { CHEAT_BONUS, CHEAT_POINTS, CHEATS, continuesCheat, feedCheatBuffer } from './Cheats'
 import { CLASSIC_BONUS, WEAPONS } from './Constants'
 import { Flea, Gecko, getScobsterDistance, getScobsterScore, Spider } from './Enemies'
 import {
@@ -9,6 +10,8 @@ import {
   ENEMIES,
   EXTRA_LIFE_STEP,
   GRID,
+  GRID_RATIO,
+  PLAYER,
   POWERUP_COLORS,
   POWERUPS,
   PSYCHEDELIC,
@@ -21,11 +24,15 @@ import {
 } from './GameConfig'
 import {
   DEFAULT_GAME_MODE,
+  enemiesDropYummies,
+  fleaWatchRows,
   type GameMode,
   getFallingMushroomChance,
   getLevelTuning,
+  getReflectedSpeedMultiplier,
   getTouchdownRules,
   getWaveComposition,
+  shouldSpawnFlea,
   spawnsCoins,
   spawnsTouchdownFriends,
   tickScobsterSpawn,
@@ -33,8 +40,10 @@ import {
   usesPsychedelicMushrooms,
   usesReflectiveMushrooms,
 } from './GameMode'
+import { firstGamepad, type PadInput, readGamepad } from './Gamepad'
 import { Grid, Mushroom } from './Grid'
 import { MouseInput } from './MouseInput'
+import { music } from './Music'
 import { ParticleSystem } from './ParticleSystem'
 import { type Bullet, Player, type PowerUpType } from './Player'
 import { PowerUp } from './PowerUp'
@@ -51,6 +60,10 @@ import {
   type VisualProfile,
 } from './ProceduralSprites'
 import { makeRng } from './RNG'
+import { newRunStats, type RunStats } from './RunStats'
+import { bakeBackdrops } from './render3d/BackdropBaker'
+import { bakeSprites, coinAngle, drawTile, FRAMES, type SpriteAtlas } from './render3d/SpriteBaker'
+import { SidebarRenderer } from './SidebarRenderer'
 import { aabb } from './Types'
 import { UFO } from './UFO'
 
@@ -59,6 +72,7 @@ const COLS = GRID.COLS
 const ROWS = GRID.ROWS
 const PLAYER_ROWS = GRID.PLAYER_ROWS
 const FIELD_W = COLS * CELL
+const FIELD_H = ROWS * CELL
 export const MAX_BONUS_SCORE = 99999
 
 // paysScore: Enhanced credits the increase to Score immediately. Classic only
@@ -98,9 +112,51 @@ type EngineSettings = {
   screenShake: boolean
   showHitboxes: boolean
   showFPS: boolean
+  reduceFlashing: boolean
+  reflectingMushrooms: boolean
+  relativeMouse: boolean
+  movingBackdrops: boolean
+  sprites3d: boolean
 }
 
 type EngineMode = 'title' | 'playing' | 'pause' | 'gameover'
+
+export interface EngineSnapshot {
+  mode: EngineMode
+  score: number
+  highScore: number
+  level: number
+  seed: number
+  cheated: boolean
+  stats: RunStats
+}
+
+const DEATH_FREEZE_SECONDS = 1.1
+const RESPAWN_INVULN_SECONDS = 2.0
+const WAVE_CLEAR_SECONDS = 1.1
+const WAVE_CLEAR_FLASH_SECONDS = 0.3
+const TEST_SEED = 0xc0ffee
+const MAX_FRAME_SECONDS = 0.1
+
+function isTestHarness(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    !!(window as unknown as { __APEIRON_TEST__?: boolean }).__APEIRON_TEST__
+  )
+}
+
+// A fresh seed per run in normal play. The headless harness keeps the fixed one
+// so captures stay bit-identical.
+function pickSeed(): number {
+  if (isTestHarness()) return TEST_SEED
+  try {
+    const buf = new Uint32Array(1)
+    crypto.getRandomValues(buf)
+    return buf[0]
+  } catch {
+    return Math.floor(Math.random() * 0x100000000) >>> 0
+  }
+}
 
 export class Engine {
   private ctx: CanvasRenderingContext2D
@@ -109,14 +165,9 @@ export class Engine {
   private last = 0
   private acc = 0
   private keys = new Set<string>()
-  private rand = makeRng(0xc0ffee)
+  private rand = makeRng(TEST_SEED)
   mode: EngineMode = 'title'
-  onStateChange?: (state: {
-    mode: EngineMode
-    score: number
-    highScore: number
-    level: number
-  }) => void
+  onStateChange?: (state: EngineSnapshot) => void
   settings: EngineSettings = {
     gameMode: DEFAULT_GAME_MODE,
     musicVolume: 70,
@@ -125,7 +176,29 @@ export class Engine {
     screenShake: true,
     showHitboxes: DEBUG.SHOW_HITBOXES,
     showFPS: DEBUG.SHOW_FPS,
+    reduceFlashing: false,
+    reflectingMushrooms: true,
+    relativeMouse: false,
+    movingBackdrops: true,
+    sprites3d: true,
   }
+  seed = TEST_SEED
+  cheated = false
+  stats: RunStats = newRunStats()
+  private waveStartScore = 0
+  private shotsCarry = 0
+  private deathT = 0 // seconds left of the shatter freeze after a hit
+  private invulnT = 0 // seconds of post-respawn invulnerability left
+  private pendingPowerUps: Array<{ type: PowerUpType; remaining: number }> = []
+  private clearBankStep = 0 // Bonus points moved into Score per tick during wave clear
+  private uiBlocked = false
+  private pausedBy: 'key' | 'caps' | 'auto' | 'ui' = 'ui'
+  private cheatBuffer = ''
+  private pixelRatio = 1
+  private fieldScale = 1
+  private pad: PadInput = readGamepad(null)
+  private padPauseHeld = false
+  private padFireHeld = false
   private levelClearT = 0 // seconds remaining for level-clear flash/freeze
   private popups: { x: number; y: number; text: string; t: number }[] = []
   private shakeT = 0 // seconds
@@ -195,10 +268,9 @@ export class Engine {
   private touchdownFriendCd = 0
   private backgroundEffects: BackgroundEffects
   private mouseInput: MouseInput
-  private sidebarTexture: HTMLCanvasElement | null = null
-  private sidebarTextureWidth = 0
-  private sidebarLogo: HTMLImageElement | null = null
-  private sidebarLogoReady = false
+  private sidebar: SidebarRenderer
+  // 3D-rendered sprite atlas, baked once at boot. Null where WebGL is missing.
+  private atlas: SpriteAtlas | null = null
 
   constructor(
     private canvas: HTMLCanvasElement,
@@ -208,14 +280,29 @@ export class Engine {
     const c = canvas.getContext('2d')
     if (!c) throw new Error('No 2D context')
     this.ctx = c
-    this.backgroundEffects = new BackgroundEffects(this.ctx, FIELD_W, this.height)
-    this.mouseInput = new MouseInput(canvas)
-    this.particles.setDensity(this.settings.particleDensity)
-    this.sidebarLogo = new Image()
-    this.sidebarLogo.onload = () => {
-      this.sidebarLogoReady = true
+    // Field units to screen pixels. The backdrop is built at screen resolution.
+    this.fieldScale = this.height / FIELD_H
+    this.backgroundEffects = new BackgroundEffects(
+      this.ctx,
+      Math.round(FIELD_W * this.fieldScale),
+      this.height
+    )
+    this.sidebar = new SidebarRenderer(this.height)
+    // Software WebGL in headless Chromium takes about 25 s to bake, so the harness
+    // (and CI) run on the 2D sprites. Set window.__APEIRON_3D__ to bake there anyway.
+    const wants3d =
+      !isTestHarness() || !!(window as unknown as { __APEIRON_3D__?: boolean }).__APEIRON_3D__
+    this.atlas = wants3d ? bakeSprites() : null
+    if (wants3d) {
+      bakeBackdrops(this.backgroundEffects.litSources(), (key, lit) =>
+        this.backgroundEffects.addLit(key, lit)
+      )
     }
-    this.sidebarLogo.src = '/apeironx-logo.png'
+    this.mouseInput = new MouseInput(canvas, width, height, this.fieldScale)
+    // Esc under pointer lock is swallowed by the browser: treat losing the lock as a pause.
+    this.mouseInput.onLockLost = () => this.pause('auto')
+    this.particles.setDensity(this.settings.particleDensity)
+    this.setPixelRatio(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1)
     // load hi-score if present
     try {
       const hi = localStorage.getItem('apeiron_hi')
@@ -242,9 +329,15 @@ export class Engine {
       if (!this.grid.get(c, r)) {
         const mush = new Mushroom(c, r)
 
-        // Reflective mushrooms appear in high waves (reflects bullets back).
-        // Enhanced-only: Classic Apeiron has no bullet-reflecting mushrooms.
-        if (usesReflectiveMushrooms(this.level, this.settings.gameMode)) {
+        // Reflecting mushrooms appear in high waves and bounce the shot back.
+        // Both modes, behind the Options toggle (see GameMode.usesReflectiveMushrooms).
+        if (
+          usesReflectiveMushrooms(
+            this.level,
+            this.settings.gameMode,
+            this.settings.reflectingMushrooms
+          )
+        ) {
           const reflectChance = Math.min(
             REFLECTED_BULLET.MAX_CHANCE,
             (this.level - REFLECTED_BULLET.START_WAVE) * REFLECTED_BULLET.CHANCE_PER_WAVE
@@ -268,6 +361,23 @@ export class Engine {
     }
   }
 
+  // Backing-store scale. The game draws in 800x592 logical pixels; this keeps it
+  // sharp on Retina displays and when the frame is scaled up to fit the window.
+  setPixelRatio(ratio: number) {
+    const next = Math.max(1, Math.min(4, Math.round(ratio * 100) / 100))
+    const w = Math.round(this.width * next)
+    const h = Math.round(this.height * next)
+    this.pixelRatio = next
+    if (this.canvas.width !== w) this.canvas.width = w
+    if (this.canvas.height !== h) this.canvas.height = h
+  }
+
+  // True while a menu panel (Options, How to Play...) owns the keyboard.
+  setUiBlocked(blocked: boolean) {
+    this.uiBlocked = blocked
+    if (blocked) this.keys.clear()
+  }
+
   start() {
     this.running = true
     this.last = performance.now()
@@ -278,14 +388,18 @@ export class Engine {
     cancelAnimationFrame(this.raf)
     this.unbindInput()
     this.mouseInput.unbindEvents()
+    music.stop()
   }
 
   private loop(now: number) {
     if (!this.running) return
 
-    const dt = (now - this.last) / 1000
+    // Browsers stop animation frames in a hidden tab. Without the clamp, coming
+    // back would replay the whole gap in one frame.
+    const dt = Math.min(MAX_FRAME_SECONDS, Math.max(0, (now - this.last) / 1000))
     this.last = now
     this.acc += dt
+    this.pollGamepad()
 
     // Fixed timestep (60Hz)
     const FIXED_DT = 1 / 60
@@ -300,11 +414,35 @@ export class Engine {
     this.raf = requestAnimationFrame((t) => this.loop(t))
   }
 
+  // Controller state is sampled once per frame, outside the fixed step, like the
+  // keyboard and pointer. Start pauses; a face button starts a run from a menu.
+  private pollGamepad() {
+    if (isTestHarness()) return
+    this.pad = readGamepad(firstGamepad())
+    if (this.uiBlocked) return
+    if (this.pad.pause && !this.padPauseHeld) {
+      if (this.mode === 'playing') this.pause('key')
+      else if (this.mode === 'pause') this.resume()
+    }
+    if (this.pad.fire && !this.padFireHeld && (this.mode === 'title' || this.mode === 'gameover')) {
+      this.startNewGame()
+    }
+    this.padPauseHeld = this.pad.pause
+    this.padFireHeld = this.pad.fire
+  }
+
   private tick(dt: number) {
     this.tGlobal += dt
     // level clear freeze: delay next level start with a brief white flash
     if (this.levelClearT > 0) {
       this.levelClearT -= dt
+      this.particles.update(dt)
+      if (!usesModernScoring(this.settings.gameMode) && this.sidebarBonus > 0) {
+        // Count the Bonus down into Score while the wave-clear plays.
+        const step = Math.min(this.sidebarBonus, this.clearBankStep)
+        this.sidebarBonus -= step
+        this.recordScore(step)
+      }
       if (this.levelClearT <= 0) {
         if (!usesModernScoring(this.settings.gameMode)) {
           // Classic banks whatever is left of the Bonus countdown.
@@ -312,11 +450,22 @@ export class Engine {
           this.sidebarBonus = 0
         }
         this.awardLevelBonuses()
+        this.stats.waveScores.push(this.score - this.waveStartScore)
         this.level++
         this.startLevel()
       }
       return
     }
+
+    // Shatter freeze: the world holds still, then the crystal respawns or the run ends.
+    if (this.deathT > 0) {
+      this.deathT -= dt
+      this.particles.update(dt)
+      if (this.shakeT > 0) this.shakeT -= dt
+      if (this.deathT <= 0) this.finishDeath()
+      return
+    }
+    if (this.invulnT > 0) this.invulnT = Math.max(0, this.invulnT - dt)
 
     this.levelElapsed += dt
 
@@ -348,7 +497,14 @@ export class Engine {
       this.keys.has('ArrowUp') ||
       this.keys.has('ArrowDown')
     const useMouse = mouseState.shooting || mouseState.vx !== 0 || mouseState.vy !== 0
-    if (useMouse) {
+    const usePad = this.pad.active && !useMouse && !keyboardMoving
+    if (usePad) {
+      this.player.update(dt, {
+        vx: this.pad.x * this.player.speed,
+        vy: this.pad.y * this.player.speed * PLAYER.MOVEMENT.VERTICAL_MULT,
+        shooting: this.pad.fire || keyboardShooting,
+      })
+    } else if (useMouse) {
       this.player.update(dt, {
         vx: mouseState.vx,
         vy: mouseState.vy,
@@ -359,7 +515,7 @@ export class Engine {
     }
 
     // Player movement trail
-    if (this.player.alive && (keyboardMoving || useMouse)) {
+    if (this.player.alive && (keyboardMoving || useMouse || usePad)) {
       this.particles.playerTrail(this.player.x + this.player.w / 2, this.player.y + this.player.h)
     }
 
@@ -387,9 +543,9 @@ export class Engine {
     // Falling mushrooms (with gravity for juggling)
     for (const fm of this.fallingMushrooms) {
       if (!fm.active) continue
-      fm.vy += 400 * dt // Gravity pulls it down
+      fm.vy += 400 * GRID_RATIO * dt // Gravity pulls it down
       fm.y += fm.vy * dt
-      if (fm.y > this.height + fm.h || fm.y < -fm.h * 2) {
+      if (fm.y > FIELD_H + fm.h || fm.y < -fm.h * 2) {
         fm.active = false
       }
       if (this.player.alive && aabb(this.player.rect(), fm)) {
@@ -403,7 +559,7 @@ export class Engine {
     for (const rb of this.reflectedBullets) {
       if (!rb.active) continue
       rb.y += rb.vy * dt
-      if (rb.y > this.height + 10) {
+      if (rb.y > FIELD_H + 10) {
         rb.active = false
       }
       // Check collision with player
@@ -424,7 +580,7 @@ export class Engine {
       this.psychedelicTimer -= dt
       if (this.psychedelicTimer <= 0) {
         this.psychedelicMultiplier = 1
-        this.addPopup(this.width / 2, this.height / 2, 'PSYCHEDELIC OVER')
+        this.addPopup(FIELD_W / 2, FIELD_H / 2, 'PSYCHEDELIC OVER')
       }
     }
 
@@ -433,7 +589,7 @@ export class Engine {
     for (const coin of this.coins) {
       if (!coin.active) continue
       coin.y += coin.vy * dt
-      if (coin.y > this.height + 10) {
+      if (coin.y > FIELD_H + 10) {
         coin.active = false
       }
       // Check collection by player
@@ -489,7 +645,8 @@ export class Engine {
       // RASPBERRY SOUND: Power-up fell off screen without being collected!
       if (wasActive && !p.active) {
         sfx.raspberry()
-        this.addPopup(FIELD_W / 2, this.height - 40, 'MISSED YUMMY!')
+        this.stats.yummiesMissed++
+        this.addPopup(FIELD_W / 2, FIELD_H - 40, 'MISSED YUMMY!')
       }
 
       // Keep classic visuals subdued; enhanced mode gets stronger sparkle.
@@ -505,7 +662,8 @@ export class Engine {
       // Check for collection
       if (p.active && aabb(this.player.rect(), p.rect())) {
         p.active = false
-        let popupText = `YUMMY! ${p.type.toUpperCase()}`
+        this.stats.yummiesCollected++
+        let popupText = `YUMMY! ${p.type.toUpperCase().replace('_', ' ')}`
         if (p.type === 'extra_man') {
           if (this.lives < 8) {
             this.lives++
@@ -571,16 +729,15 @@ export class Engine {
     )
     this.spiderTimer = scobster.timer
     if (scobster.spawn) {
-      this.spiders.push(new Spider(this.level, this.rand))
+      this.spiders.push(new Spider(this.level, this.rand, this.player.x + this.player.w / 2))
       this.spiderTimer = randRange(modeTuning.spiderMin, modeTuning.spiderMax, this.rand)
     }
 
     // Groucho the Flick (Flea)
     this.fleaCd -= dt
     if (this.fleaCd <= 0) {
-      const playerRowStart = GRID.ROWS - GRID.PLAYER_ROWS
-      const mushes = this.grid.countInRows(playerRowStart, GRID.ROWS - 1)
-      if (mushes < ENEMIES.GROUCHO_THE_FLICK.PLAYER_ROWS_MIN_MUSHES) {
+      const watch = fleaWatchRows()
+      if (shouldSpawnFlea(this.grid.countInRows(watch.start, watch.end))) {
         this.fleas.push(new Flea(this.rand))
       }
       this.fleaCd =
@@ -664,14 +821,7 @@ export class Engine {
       // Pentipede segments
       for (const cent of this.centipedes) {
         for (const s of cent.segments) {
-          if (
-            aabb(pr, {
-              x: s.c * GRID.CELL + 2,
-              y: s.r * GRID.CELL + 2,
-              w: GRID.CELL - 4,
-              h: GRID.CELL - 4,
-            })
-          ) {
+          if (aabb(pr, this.segRect(cent, s))) {
             this.loseLife()
             return
           }
@@ -730,7 +880,11 @@ export class Engine {
     // level complete
     const remaining = this.centipedes.reduce((n, c) => n + c.segments.length, 0)
     if (remaining === 0 && this.levelClearT <= 0) {
-      this.levelClearT = 0.6
+      const classicClear = !usesModernScoring(this.settings.gameMode)
+      this.levelClearT = classicClear ? WAVE_CLEAR_SECONDS : 0.6
+      // Sized so the countdown finishes a little before the freeze ends.
+      const ticks = Math.max(1, Math.floor((WAVE_CLEAR_SECONDS - 0.25) * 60))
+      this.clearBankStep = Math.max(10, Math.ceil(this.sidebarBonus / ticks / 10) * 10)
       sfx.level()
     }
   }
@@ -746,8 +900,7 @@ export class Engine {
       }
 
       // Regular bullet collisions
-      if (this.handleRegularBullet(b)) {
-      }
+      if (this.handleRegularBullet(b)) this.stats.hits++
     }
   }
 
@@ -755,10 +908,8 @@ export class Engine {
     const targets: Array<{ x: number; y: number }> = []
     for (const centipede of this.centipedes) {
       for (const segment of centipede.segments) {
-        targets.push({
-          x: segment.c * CELL + CELL / 2,
-          y: segment.r * CELL + CELL / 2,
-        })
+        const pos = centipede.segmentPixel(segment)
+        targets.push({ x: pos.x + CELL / 2, y: pos.y + CELL / 2 })
       }
     }
     for (const spider of this.spiders) {
@@ -827,7 +978,7 @@ export class Engine {
       const cent = this.centipedes[ci]
       for (let si = cent.segments.length - 1; si >= 0; si--) {
         const s = cent.segments[si]
-        const rect = { x: s.c * CELL + 2, y: s.r * CELL + 2, w: CELL - 4, h: CELL - 4 }
+        const rect = this.segRect(cent, s)
         if (aabb(blastRect, rect)) {
           if (!this.grid.get(s.c, s.r)) {
             this.grid.set(s.c, s.r, new Mushroom(s.c, s.r))
@@ -852,11 +1003,11 @@ export class Engine {
           this.centipedes.splice(ci, 1)
           if (left.length) {
             left[0].head = true
-            this.centipedes.push(Object.assign(new Centipede(0, this.level), { segments: left }))
+            this.centipedes.push(cent.split(left, this.level))
           }
           if (right.length) {
             right[0].head = true
-            this.centipedes.push(Object.assign(new Centipede(0, this.level), { segments: right }))
+            this.centipedes.push(cent.split(right, this.level))
           }
           hitCount++
         }
@@ -937,7 +1088,7 @@ export class Engine {
           this.reflectedBullets.push({
             x: b.x,
             y: b.y,
-            vy: Math.abs(b.vy) * REFLECTED_BULLET.SPEED_MULTIPLIER,
+            vy: Math.abs(b.vy) * getReflectedSpeedMultiplier(this.settings.gameMode),
             active: true,
           })
           sfx.reflect()
@@ -989,6 +1140,10 @@ export class Engine {
         if (mush.hp <= 0) {
           this.grid.set(mc, mr, null)
           this.addScore(SCORE.MUSHROOM_CLEAR_BONUS)
+          // Yummy coins come out of destroyed mushrooms, as in the 1995 game.
+          if (this.rand() < POWERUPS.MUSHROOM_DROP_CHANCE) {
+            this.spawnPowerUp(mush.x + CELL / 2, mush.y + CELL / 2)
+          }
           const fallChance = getFallingMushroomChance(this.level, this.settings.gameMode)
           if (this.rand() < fallChance) {
             this.fallingMushrooms.push({
@@ -996,7 +1151,7 @@ export class Engine {
               y: mush.y + 1,
               w: CELL - 2,
               h: CELL - 2,
-              vy: 150 + this.level * 8,
+              vy: (150 + this.level * 8) * GRID_RATIO,
               poisoned: mush.poisoned,
               active: true,
               juggleCount: 0,
@@ -1064,12 +1219,13 @@ export class Engine {
       const cent = this.centipedes[ci]
       for (let si = 0; si < cent.segments.length; si++) {
         const s = cent.segments[si]
-        const rect = { x: s.c * CELL + 2, y: s.r * CELL + 2, w: CELL - 4, h: CELL - 4 }
+        const rect = this.segRect(cent, s)
         if (aabb(b.rect(), rect)) {
           b.active = false
           if (!this.grid.get(s.c, s.r)) this.grid.set(s.c, s.r, new Mushroom(s.c, s.r))
           const killedHead = si === 0
           const pts = killedHead ? SCORE.HEAD : SCORE.SEGMENT
+          this.stats.kills.pentipede++
           this.addScore(pts)
           this.addPopup(s.c * CELL + CELL / 2, s.r * CELL + CELL / 2, String(pts))
           sfx.hit()
@@ -1088,11 +1244,11 @@ export class Engine {
           this.centipedes.splice(ci, 1)
           if (left.length) {
             left[0].head = true
-            this.centipedes.push(Object.assign(new Centipede(0, this.level), { segments: left }))
+            this.centipedes.push(cent.split(left, this.level))
           }
           if (right.length) {
             right[0].head = true
-            this.centipedes.push(Object.assign(new Centipede(0, this.level), { segments: right }))
+            this.centipedes.push(cent.split(right, this.level))
           }
           return true
         }
@@ -1108,6 +1264,7 @@ export class Engine {
         this.addScore(pts)
         this.addPopup(sp.x + sp.w / 2, sp.y + sp.h / 2, String(pts))
         sfx.spider()
+        this.stats.kills.scobster++
         this.particles.emitExplosion(
           sp.x + sp.w / 2,
           sp.y + sp.h / 2,
@@ -1134,6 +1291,7 @@ export class Engine {
         this.addScore(pts)
         this.addPopup(f.x + f.w / 2, f.y + f.h / 2, String(pts))
         sfx.flea()
+        this.stats.kills.flick++
         this.particles.emitExplosion(
           f.x + f.w / 2,
           f.y + f.h / 2,
@@ -1153,6 +1311,7 @@ export class Engine {
         this.addScore(ENEMIES.GORDON_THE_GECKO.SCORE)
         this.addPopup(sc.x + sc.w / 2, sc.y + sc.h / 2, String(ENEMIES.GORDON_THE_GECKO.SCORE))
         sfx.gecko()
+        this.stats.kills.gecko++
         this.particles.emitExplosion(
           sc.x + sc.w / 2,
           sc.y + sc.h / 2,
@@ -1174,6 +1333,7 @@ export class Engine {
         this.addScore(pts, 'bonus')
         this.addPopup(ufo.x + ufo.w / 2, ufo.y + ufo.h / 2, String(pts))
         sfx.ufo()
+        this.stats.kills.ufo++
         this.particles.emitExplosion(
           ufo.x + ufo.w / 2,
           ufo.y + ufo.h / 2,
@@ -1196,7 +1356,7 @@ export class Engine {
   private handleTouchdowns(count: number) {
     const modeTuning = getLevelTuning(this.level, this.settings.gameMode)
     const touchdownRules = getTouchdownRules(this.settings.gameMode)
-    this.addPopup(this.width / 2, (GRID.ROWS - GRID.PLAYER_ROWS) * GRID.CELL - 8, 'TOUCHDOWN')
+    this.addPopup(FIELD_W / 2, (GRID.ROWS - GRID.PLAYER_ROWS) * GRID.CELL - 8, 'TOUCHDOWN')
     for (let i = 0; i < count; i++) {
       const totalSegments = this.centipedes.reduce((n, c) => n + c.segments.length, 0)
       if (totalSegments < touchdownRules.segmentCap) {
@@ -1208,7 +1368,7 @@ export class Engine {
       if (this.touchdownFriendCd > 0) continue
       const roll = this.rand()
       if (roll < 0.45 && this.spiders.length < (this.settings.gameMode === 'classic' ? 1 : 2)) {
-        this.spiders.push(new Spider(this.level, this.rand))
+        this.spiders.push(new Spider(this.level, this.rand, this.player.x + this.player.w / 2))
       } else if (roll < 0.8 && this.fleas.length < 3) {
         this.fleas.push(new Flea(this.rand))
       } else if (this.geckos.length < 2) {
@@ -1218,30 +1378,64 @@ export class Engine {
     }
   }
 
+  private segRect(cent: Centipede, s: Segment) {
+    const pos = cent.segmentPixel(s)
+    return { x: pos.x + 2, y: pos.y + 2, w: CELL - 4, h: CELL - 4 }
+  }
+
   private loseLife() {
     // Don't lose life if shield is active or phase shifting
     if (this.player.isShieldActive() || this.player.phaseShiftActive) {
       this.shakeT = 0.15
       return
     }
+    // One hit costs one life: nothing can hit again during the shatter freeze
+    // or the short invulnerable window after respawn.
+    if (this.invulnT > 0 || this.deathT > 0 || !this.player.alive) return
 
     this.lives--
     this.player.alive = false
     this.shakeT = 0.35
     this.hitsTaken++
+    this.shotsCarry += this.player.shotsFired
+    this.player.shotsFired = 0
+    this.pendingPowerUps = this.player.hasPowerUp('lock') ? this.player.getPowerUpSnapshot() : []
+    for (const b of this.player.bullets) b.active = false
 
-    const savedPowerUps = this.player.hasPowerUp('lock') ? this.player.getPowerUpSnapshot() : []
+    const cx = this.player.x + this.player.w / 2
+    const cy = this.player.y + this.player.h / 2
+    const shards = this.isClassicMode() ? 14 : 22
+    this.particles.emitExplosion(cx, cy, '#9ff6ff', shards)
+    this.particles.emitExplosion(cx, cy, '#ffffff', Math.floor(shards / 2))
+    sfx.death()
+    this.deathT = DEATH_FREEZE_SECONDS
+  }
 
+  private finishDeath() {
+    this.deathT = 0
     if (this.lives <= 0) {
+      this.stats.waveScores.push(this.score - this.waveStartScore)
       this.mode = 'gameover'
+      music.stop()
       sfx.gameover()
       this.notifyStateChange()
-    } else {
-      this.player = new Player()
-      if (savedPowerUps.length) {
-        this.player.restorePowerUps(savedPowerUps)
-      }
+      return
     }
+
+    // Clear everything that could be sitting on the spawn point. The Pentipede
+    // stays where it is; the invulnerable window covers it.
+    this.spiders.length = 0
+    this.fleas.length = 0
+    this.geckos.length = 0
+    this.ufos.length = 0
+    this.fallingMushrooms.length = 0
+    this.reflectedBullets.length = 0
+    this.fleaMultiplier = 1
+
+    this.player = new Player()
+    if (this.pendingPowerUps.length) this.player.restorePowerUps(this.pendingPowerUps)
+    this.pendingPowerUps = []
+    this.invulnT = RESPAWN_INVULN_SECONDS
   }
 
   private hexToRgb(hex: string): string {
@@ -1302,7 +1496,7 @@ export class Engine {
   private recordScore(points: number) {
     if (points <= 0) return
     this.score += points
-    if (this.score > this.highScore) {
+    if (!this.cheated && this.score > this.highScore) {
       this.highScore = this.score
       try {
         localStorage.setItem('apeiron_hi', String(this.highScore))
@@ -1368,7 +1562,7 @@ export class Engine {
     if (totalBonus > 0) {
       this.addScore(totalBonus, 'bonus')
       if (bonusText) {
-        this.addPopup(this.width / 2, this.height / 2, bonusText.trim())
+        this.addPopup(FIELD_W / 2, FIELD_H / 2, bonusText.trim())
       }
     }
   }
@@ -1384,6 +1578,8 @@ export class Engine {
     const tuning = getLevelTuning(this.level, this.settings.gameMode)
     this.sidebarBonus = usesModernScoring(this.settings.gameMode) ? 0 : CLASSIC_BONUS.START
     this.bonusCarry = 0
+    this.waveStartScore = this.score
+    music.setWave(this.level)
 
     // Update background theme based on wave (changes every 4 waves like original)
     this.backgroundEffects.setWave(this.level)
@@ -1461,7 +1657,7 @@ export class Engine {
   }
 
   private maybeDropPowerUp(x: number, y: number) {
-    if (this.rand() < POWERUPS.SPAWN_CHANCE) {
+    if (enemiesDropYummies(this.settings.gameMode) && this.rand() < POWERUPS.SPAWN_CHANCE) {
       this.spawnPowerUp(x, y)
     }
     // Bonus score coins/frenzies are an Enhanced addition. The original
@@ -1500,7 +1696,7 @@ export class Engine {
   private triggerCoinFrenzy() {
     this.coinFrenzyActive = true
     this.coinsCollected = 0
-    this.addPopup(this.width / 2, this.height / 3, 'COIN FRENZY!')
+    this.addPopup(FIELD_W / 2, FIELD_H / 3, 'COIN FRENZY!')
     sfx.coinFrenzy()
 
     // Spawn many coins across the top
@@ -1529,13 +1725,24 @@ export class Engine {
     this.coinFrenzyActive = false
     if (this.coinsCollected > 10) {
       this.addScore(SCORE.COIN_FRENZY_BONUS, 'bonus')
-      this.addPopup(this.width / 2, this.height / 2, `FRENZY BONUS! ${this.coinsCollected} COINS!`)
+      this.addPopup(FIELD_W / 2, FIELD_H / 2, `FRENZY BONUS! ${this.coinsCollected} COINS!`)
     }
   }
 
-  private resetGame(keepHi = false) {
-    // re-seed RNG to keep determinism on each new game
-    this.rand = makeRng(0xc0ffee)
+  private resetGame(keepHi = false, seed?: number) {
+    // Every run gets its own seed; the whole run is still a pure function of it.
+    this.seed = (seed ?? pickSeed()) >>> 0
+    this.rand = makeRng(this.seed)
+    this.cheated = false
+    this.stats = newRunStats()
+    this.shotsCarry = 0
+    this.waveStartScore = 0
+    this.deathT = 0
+    this.invulnT = 0
+    this.pendingPowerUps = []
+    this.levelClearT = 0
+    this.popups = []
+    this.particles.clear()
     if (!keepHi) {
       try {
         const hi = localStorage.getItem('apeiron_hi')
@@ -1572,9 +1779,10 @@ export class Engine {
   private draw() {
     const g = this.ctx
     const fieldW = FIELD_W
-    const panelX = fieldW
-    const panelW = Math.max(0, this.width - fieldW)
+    const panelX = Math.round(fieldW * this.fieldScale)
+    const panelW = Math.max(0, this.width - panelX)
     const profile = this.getVisualProfile()
+    g.setTransform(this.pixelRatio, 0, 0, this.pixelRatio, 0, 0)
     g.imageSmoothingEnabled = true
     g.imageSmoothingQuality = 'high'
 
@@ -1584,6 +1792,8 @@ export class Engine {
 
     // Update and draw background effects
     this.backgroundEffects.setProfile(profile)
+    this.backgroundEffects.setMotion(this.settings.movingBackdrops)
+    this.backgroundEffects.setLit(this.settings.sprites3d)
     this.backgroundEffects.update(1 / 60)
     this.backgroundEffects.draw()
 
@@ -1602,52 +1812,114 @@ export class Engine {
     // Gameplay area is clipped to the left field. Sidebar is right panel.
     g.save()
     g.beginPath()
-    g.rect(0, 0, fieldW, this.height)
+    g.rect(0, 0, panelX, this.height)
     g.clip()
+    // Everything from here to the matching restore is in field units.
+    g.scale(this.fieldScale, this.fieldScale)
+    this.backgroundEffects.drawEnergy()
 
     // mushrooms
+    const atlas = this.settings.sprites3d ? this.atlas : null
+    const theme = this.backgroundEffects.getTheme()
+    const mushroomRim =
+      theme === 'ocean' || theme === 'neon' || theme === 'cosmic'
+        ? 'rgba(255, 240, 205, 0.8)'
+        : null
     for (let r = 0; r < ROWS; r++)
       for (let c = 0; c < COLS; c++) {
         const m = this.grid.get(c, r)
         if (!m) continue
         const x = c * CELL,
           y = r * CELL
-        drawMushroom(g, x, y, m.poisoned, m.hp, profile, m.reflective, m.psychedelic, this.tGlobal)
+        if (atlas && !m.psychedelic) {
+          const hp = Math.max(1, Math.min(4, m.hp))
+          const key = m.reflective
+            ? 'mush:reflective'
+            : `mush:${profile}:${m.poisoned ? 1 : 0}:${hp}`
+          if (drawTile(g, atlas, key, x + CELL / 2, y + 10)) continue
+        }
+        drawMushroom(
+          g,
+          x,
+          y,
+          m.poisoned,
+          m.hp,
+          profile,
+          m.reflective,
+          m.psychedelic,
+          this.tGlobal,
+          mushroomRim
+        )
       }
     for (const fm of this.fallingMushrooms) {
       if (!fm.active) continue
-      drawMushroom(g, fm.x, fm.y, fm.poisoned, 1, profile, false, false, this.tGlobal)
+      drawMushroom(g, fm.x, fm.y, fm.poisoned, 1, profile, false, false, this.tGlobal, mushroomRim)
     }
 
     // centipede
     for (const cent of this.centipedes) {
+      const stride = cent.stepFraction
       for (let i = 0; i < cent.segments.length; i++) {
         const s = cent.segments[i]
-        const x = s.c * CELL,
-          y = s.r * CELL
-        drawSegment(g, x, y, s.head, profile)
+        const pos = cent.segmentPixel(s)
+        const phase = (stride + (i % 2) * 0.5) % 1
+        if (atlas) {
+          const frame = Math.floor(phase * FRAMES.segment) % FRAMES.segment
+          const key = `seg:${profile}:${s.head ? 'h' : 'b'}:${frame}`
+          if (drawTile(g, atlas, key, pos.x + CELL / 2, pos.y + 8.5)) continue
+        }
+        drawSegment(g, pos.x, pos.y, s.head, profile, phase)
       }
     }
 
     // enemies
     for (const sp of this.spiders) {
+      const frame = Math.floor(this.tGlobal * 12) % FRAMES.scobster
+      if (atlas && drawTile(g, atlas, `scobster:${frame}`, sp.x + sp.w / 2, sp.y + sp.h / 2))
+        continue
       drawSpider(g, sp.x, sp.y, sp.w, sp.h)
     }
     for (const f of this.fleas) {
+      const frame = Math.floor(this.tGlobal * 14) % FRAMES.flick
+      if (atlas && drawTile(g, atlas, `flick:${frame}`, f.x + f.w / 2, f.y + f.h / 2)) continue
       drawFlea(g, f.x, f.y, f.w, f.h)
     }
     for (const sc of this.geckos) {
+      const frame = Math.floor(this.tGlobal * 12) % FRAMES.gecko
+      if (
+        atlas &&
+        drawTile(g, atlas, `gecko:${frame}`, sc.x + sc.w / 2, sc.y + sc.h / 2, 1, sc.vx < 0)
+      )
+        continue
       drawGecko(g, sc.x, sc.y, sc.w, sc.h)
     }
     for (const ufo of this.ufos) {
-      if (!ufo.dead) drawUFO(g, ufo.x, ufo.y, ufo.w, ufo.h)
+      if (ufo.dead) continue
+      const frame = Math.floor(this.tGlobal * 10) % FRAMES.ufo
+      const hover = Math.sin(this.tGlobal * 5) * 1.2
+      if (atlas) {
+        // The saucer flies above the field: its shadow is drawn on the ground below.
+        g.fillStyle = 'rgba(0,0,0,0.22)'
+        g.beginPath()
+        g.ellipse(ufo.x + ufo.w / 2, ufo.y + ufo.h + 9, 10, 3.2, 0, 0, Math.PI * 2)
+        g.fill()
+        if (drawTile(g, atlas, `ufo:${frame}`, ufo.x + ufo.w / 2, ufo.y + ufo.h / 2 + hover))
+          continue
+      }
+      drawUFO(g, ufo.x, ufo.y, ufo.w, ufo.h)
     }
 
     // power-ups
     g.font = '10px ui-monospace, Menlo, monospace'
     g.textAlign = 'center'
     for (const p of this.powerUps) {
-      if (p.active) p.draw(g)
+      if (!p.active) continue
+      if (atlas) {
+        const frame = Math.floor(this.tGlobal * 9 + p.x) % FRAMES.coin
+        p.draw(g, () => drawTile(g, atlas, `coin:${frame}`, 0, 0), Math.cos(coinAngle(frame)))
+      } else {
+        p.draw(g)
+      }
     }
     g.textAlign = 'start'
 
@@ -1655,17 +1927,42 @@ export class Engine {
     const p = this.player
 
     // Draw shield effect if active
-    if (p.isShieldVisible()) {
+    if (p.alive && p.isShieldVisible()) {
       g.fillStyle = `rgba(${this.hexToRgb(POWERUP_COLORS.shield)},0.22)`
       g.fillRect(p.x - 2, p.y - 2, p.w + 4, p.h + 4)
     }
 
-    drawPlayer(g, p.x, p.y, p.w, p.h, profile)
-    if (p.flashT > 0) {
+    if (p.alive) {
+      // Blink while invulnerable after a respawn (a steady fade with Reduce Flashing).
+      const blinking = this.invulnT > 0 && this.mode !== 'title'
+      const hidden =
+        blinking && !this.settings.reduceFlashing && Math.floor(this.invulnT * 10) % 2 === 1
+      if (!hidden) {
+        if (blinking) g.globalAlpha = 0.55
+        const spin = Math.floor(this.tGlobal * 14) % FRAMES.crystal
+        if (!atlas || !drawTile(g, atlas, `crystal:${spin}`, p.x + p.w / 2, p.y + p.h / 2 + 1)) {
+          drawPlayer(g, p.x, p.y, p.w, p.h, profile, this.tGlobal)
+        }
+        g.globalAlpha = 1
+      }
+    }
+    if (p.alive && p.flashT > 0) {
       drawMuzzleFlash(g, p.x, p.y, p.w, Math.min(1, p.flashT / 0.05), profile)
     }
     for (const b of p.bullets) {
-      if (b.active) drawBullet(g, b.x, b.y, profile)
+      if (!b.active) continue
+      if (atlas) {
+        // Plasma glow under the shot.
+        const glow = g.createRadialGradient(b.x + 1, b.y + 3, 0, b.x + 1, b.y + 3, 9)
+        glow.addColorStop(0, 'rgba(255, 214, 140, 0.55)')
+        glow.addColorStop(1, 'rgba(255, 150, 60, 0)')
+        g.save()
+        g.globalCompositeOperation = 'lighter'
+        g.fillStyle = glow
+        g.fillRect(b.x - 8, b.y - 6, 18, 18)
+        g.restore()
+      }
+      drawBullet(g, b.x, b.y, profile)
     }
 
     // REFLECTED BULLETS - dangerous red bullets coming at player
@@ -1729,20 +2026,35 @@ export class Engine {
 
     // Level clear flash overlay
     if (this.levelClearT > 0) {
-      const a = Math.min(0.9, Math.max(0, this.levelClearT / 0.6))
-
-      // White flash
-      g.fillStyle = `rgba(255,255,255,${a})`
-      g.fillRect(0, 0, this.width, this.height)
+      const total = usesModernScoring(this.settings.gameMode) ? 0.6 : WAVE_CLEAR_SECONDS
+      const sinceClear = total - this.levelClearT
+      const peak = this.settings.reduceFlashing ? 0.2 : 0.8
+      const a = peak * Math.max(0, 1 - sinceClear / WAVE_CLEAR_FLASH_SECONDS)
+      if (a > 0) {
+        g.fillStyle = `rgba(255,255,255,${a})`
+        g.fillRect(0, 0, fieldW, FIELD_H)
+      }
+      g.font = '700 22px "Times New Roman", Georgia, serif'
+      g.textAlign = 'center'
+      g.lineWidth = 3
+      g.strokeStyle = 'rgba(10,10,14,0.85)'
+      g.strokeText(`WAVE ${this.displayWave()} CLEAR`, fieldW / 2, FIELD_H / 2 - 8)
+      g.fillStyle = '#ffe9a8'
+      g.fillText(`WAVE ${this.displayWave()} CLEAR`, fieldW / 2, FIELD_H / 2 - 8)
+      g.textAlign = 'start'
     }
 
     // PSYCHEDELIC EFFECT - rainbow screen flash!
     if (this.psychedelicTimer > 0) {
-      const phase = this.tGlobal * 4
-      const intensity = Math.min(0.35, (this.psychedelicTimer / TIMERS.PSYCHEDELIC_DURATION) * 0.5)
+      // Reduce Flashing: a steady, faint tint instead of the moving pulse.
+      const calm = this.settings.reduceFlashing
+      const phase = calm ? 0 : this.tGlobal * 4
+      const intensity = calm
+        ? 0.12
+        : Math.min(0.35, (this.psychedelicTimer / TIMERS.PSYCHEDELIC_DURATION) * 0.5)
 
       // Rainbow gradient overlay
-      const rainbowGrad = g.createLinearGradient(0, 0, fieldW, this.height)
+      const rainbowGrad = g.createLinearGradient(0, 0, fieldW, FIELD_H)
       rainbowGrad.addColorStop(0, `rgba(255,0,0,${intensity})`)
       rainbowGrad.addColorStop(0.17, `rgba(255,127,0,${intensity})`)
       rainbowGrad.addColorStop(0.33, `rgba(255,255,0,${intensity})`)
@@ -1754,28 +2066,30 @@ export class Engine {
       g.save()
       g.globalCompositeOperation = 'overlay'
       g.fillStyle = rainbowGrad
-      g.fillRect(0, 0, fieldW, this.height)
+      g.fillRect(0, 0, fieldW, FIELD_H)
 
       // Pulsing radial effect
       const pulseRad = g.createRadialGradient(
         fieldW / 2 + Math.sin(phase) * 50,
-        this.height / 2 + Math.cos(phase) * 50,
+        FIELD_H / 2 + Math.cos(phase) * 50,
         0,
         fieldW / 2,
-        this.height / 2,
+        FIELD_H / 2,
         fieldW
       )
       pulseRad.addColorStop(0, `rgba(255,255,255,${intensity * 0.5})`)
       pulseRad.addColorStop(0.5, `rgba(255,200,255,${intensity * 0.3})`)
       pulseRad.addColorStop(1, 'rgba(255,255,255,0)')
       g.fillStyle = pulseRad
-      g.fillRect(0, 0, fieldW, this.height)
+      g.fillRect(0, 0, fieldW, FIELD_H)
       g.restore()
 
       // Show multiplier text
       g.font = 'bold 16px ui-monospace, Menlo, monospace'
       g.textAlign = 'center'
-      g.fillStyle = `rgba(255,255,255,${0.6 + Math.sin(this.tGlobal * 10) * 0.4})`
+      g.fillStyle = calm
+        ? 'rgba(255,255,255,0.9)'
+        : `rgba(255,255,255,${0.6 + Math.sin(this.tGlobal * 10) * 0.4})`
       g.fillText(`${PSYCHEDELIC.POINT_MULTIPLIER}x POINTS!`, fieldW / 2, 30)
       g.textAlign = 'start'
     }
@@ -1843,7 +2157,8 @@ export class Engine {
         // Centipede segment hitboxes
         for (const cent of this.centipedes) {
           for (const s of cent.segments) {
-            g.strokeRect(s.c * GRID.CELL + 2, s.r * GRID.CELL + 2, GRID.CELL - 4, GRID.CELL - 4)
+            const r = this.segRect(cent, s)
+            g.strokeRect(r.x, r.y, r.w, r.h)
           }
         }
       }
@@ -1851,307 +2166,77 @@ export class Engine {
     }
 
     g.restore()
-    this.drawSidebar(g, panelX, panelW)
+    this.sidebar.draw(g, panelX, panelW, {
+      profile,
+      score: this.score,
+      bonus: this.sidebarBonus,
+      lives: this.lives,
+      wave: this.displayWave(),
+      hasLock: this.player.hasPowerUp('lock'),
+      hasDiamond: this.player.hasPowerUp('diamond'),
+      hasGun: this.player.hasPowerUp('machine_gun'),
+      autofireTime: this.player.autofireTime,
+    })
     g.restore()
-  }
-
-  private drawSidebar(g: CanvasRenderingContext2D, x: number, w: number) {
-    if (w <= 0) return
-    const profile = this.getVisualProfile()
-    const classicProfile = profile === 'classic'
-
-    if (!this.sidebarTexture || this.sidebarTextureWidth !== w) {
-      this.sidebarTexture = this.buildSidebarTexture(w, this.height)
-      this.sidebarTextureWidth = w
-    }
-    g.drawImage(this.sidebarTexture, x, 0)
-
-    g.fillStyle = '#1f2629'
-    g.fillRect(x, 0, 2, this.height)
-    g.fillStyle = '#6d6e6f'
-    g.fillRect(x + 2, 0, 1, this.height)
-
-    g.save()
-    g.translate(x, 0)
-
-    if (this.sidebarLogoReady && this.sidebarLogo && !classicProfile) {
-      const logoPad = 6
-      const logoTop = 3
-      const logoBoxW = w - logoPad * 2
-      const logoBoxH = 78
-      const iw = this.sidebarLogo.naturalWidth || 1
-      const ih = this.sidebarLogo.naturalHeight || 1
-      const scale = Math.min(logoBoxW / iw, logoBoxH / ih)
-      const drawW = Math.floor(iw * scale)
-      const drawH = Math.floor(ih * scale)
-      const drawX = Math.floor((w - drawW) * 0.5)
-      const drawY = logoTop + Math.floor((logoBoxH - drawH) * 0.5)
-      g.drawImage(this.sidebarLogo, drawX, drawY, drawW, drawH)
-    } else {
-      g.strokeStyle = classicProfile ? '#be8730' : '#ad7e32'
-      g.lineWidth = 2
-      g.beginPath()
-      g.ellipse(w * 0.5, 36, w * 0.42, 25, -0.12, 0, Math.PI * 2)
-      g.stroke()
-      g.font = 'italic 700 44px Georgia, serif'
-      g.textAlign = 'center'
-      g.textBaseline = 'top'
-      const logoGrad = g.createLinearGradient(w * 0.18, 10, w * 0.82, 58)
-      if (classicProfile) {
-        logoGrad.addColorStop(0, '#70441a')
-        logoGrad.addColorStop(0.38, '#e6bf55')
-        logoGrad.addColorStop(1, '#c77818')
-      } else {
-        logoGrad.addColorStop(0, '#6f4a1c')
-        logoGrad.addColorStop(0.38, '#f3c15f')
-        logoGrad.addColorStop(1, '#d8841e')
-      }
-      g.fillStyle = logoGrad
-      g.strokeStyle = 'rgba(21, 12, 6, 0.95)'
-      g.lineWidth = 2
-      g.strokeText('Apeiron', w * 0.47, 8)
-      g.fillText('Apeiron', w * 0.47, 8)
-      if (!classicProfile) {
-        g.font = 'italic 700 58px Georgia, serif'
-        g.fillStyle = '#d77a1c'
-        g.strokeText('X', w * 0.83, 4)
-        g.fillText('X', w * 0.83, 4)
-      }
-    }
-    g.textAlign = 'center'
-    g.textBaseline = 'top'
-
-    const drawDataBox = (top: number, label: string, value: string, valueFont = 46) => {
-      g.fillStyle = classicProfile ? '#db2e26' : '#d3a43c'
-      g.font = '700 18px "Times New Roman", Georgia, serif'
-      g.fillText(label, w * 0.5, top)
-
-      const boxX = 14
-      const boxY = top + 28
-      const boxW = w - 28
-      const boxH = 36
-      g.fillStyle = '#08090d'
-      g.fillRect(boxX, boxY, boxW, boxH)
-      g.strokeStyle = '#6a7073'
-      g.lineWidth = 2
-      g.strokeRect(boxX, boxY, boxW, boxH)
-      g.fillStyle = 'rgba(255,255,255,0.07)'
-      g.fillRect(boxX + 1, boxY + 1, boxW - 2, 6)
-
-      const fitFont = Math.max(
-        28,
-        Math.min(valueFont, Math.floor(((boxW - 12) / Math.max(1, value.length)) * 1.68))
-      )
-      g.font = `700 ${fitFont}px "Times New Roman", Georgia, serif`
-      g.strokeStyle = '#051923'
-      g.lineWidth = 2.2
-      g.strokeText(value, w * 0.5, top + 20)
-      g.fillStyle = '#5fd2ef'
-      g.fillText(value, w * 0.5, top + 20)
-      g.fillStyle = 'rgba(186, 243, 252, 0.33)'
-      g.fillText(value, w * 0.5 + 1, top + 19)
-    }
-
-    const scoreText = String(this.score)
-    const bonusText = String(this.sidebarBonus)
-    drawDataBox(94, 'Score', scoreText, 46)
-    drawDataBox(212, 'Bonus', bonusText, 46)
-
-    g.fillStyle = classicProfile ? '#db2e26' : '#d3a43c'
-    g.font = '700 18px "Times New Roman", Georgia, serif'
-    g.fillText('Lives', w * 0.5, 326)
-    g.fillStyle = '#08090d'
-    g.fillRect(14, 352, w - 28, 32)
-    g.strokeStyle = '#6a7073'
-    g.lineWidth = 2
-    g.strokeRect(14, 350, w - 28, 34)
-
-    let lx = 52
-    for (let i = 0; i < Math.max(0, this.lives); i++) {
-      g.fillStyle = '#111d2d'
-      g.beginPath()
-      g.moveTo(lx, 368)
-      g.lineTo(lx + 5.5, 360)
-      g.lineTo(lx + 11, 368)
-      g.lineTo(lx + 5.5, 372.5)
-      g.closePath()
-      g.fill()
-      g.fillStyle = classicProfile ? '#f4df74' : '#82e1f5'
-      g.beginPath()
-      g.ellipse(lx + 5.5, 365.4, 1.8, 1.45, 0, 0, Math.PI * 2)
-      g.fill()
-      g.strokeStyle = '#5d7088'
-      g.strokeRect(lx + 1.2, 362.9, 8.6, 7.6)
-      lx += 18
-      if (lx > w - 24) break
-    }
-
-    // Active power-up strip.
-    g.fillStyle = '#090a0e'
-    g.fillRect(44, 420, w - 88, 22)
-    g.strokeStyle = '#5a5e63'
-    g.strokeRect(44, 418, w - 88, 24)
-    const hasLock = this.player.hasPowerUp('lock')
-    const hasDiamond = this.player.hasPowerUp('diamond')
-    const hasGun = this.player.hasPowerUp('machine_gun')
-    const iconY = 431
-    g.font = '700 18px Georgia, serif'
-    g.fillStyle = hasGun ? '#c54630' : 'rgba(197, 70, 48, 0.35)'
-    g.fillText('2', 62, iconY - 10)
-    if (hasDiamond) {
-      g.fillStyle = '#45d6ff'
-    } else {
-      g.fillStyle = 'rgba(69, 214, 255, 0.35)'
-    }
-    g.beginPath()
-    g.moveTo(72, iconY)
-    g.lineTo(78, iconY - 6)
-    g.lineTo(84, iconY)
-    g.lineTo(78, iconY + 6)
-    g.closePath()
-    g.fill()
-    if (hasGun) {
-      g.fillStyle = '#e55d2f'
-    } else {
-      g.fillStyle = 'rgba(229, 93, 47, 0.35)'
-    }
-    g.fillRect(98, iconY - 7, 3, 14)
-    g.fillRect(104, iconY - 7, 3, 14)
-    g.fillRect(110, iconY - 7, 3, 14)
-    if (hasLock) {
-      g.strokeStyle = '#c8d5e0'
-      g.lineWidth = 1.5
-    } else {
-      g.strokeStyle = 'rgba(200, 213, 224, 0.4)'
-      g.lineWidth = 1.2
-    }
-    g.strokeRect(130, iconY - 3, 10, 8)
-    g.beginPath()
-    g.arc(135, iconY - 3, 4, Math.PI, Math.PI * 2)
-    g.stroke()
-
-    g.fillStyle = classicProfile ? '#db2e26' : '#d3a43c'
-    g.font = '700 18px "Times New Roman", Georgia, serif'
-    g.fillText('Wave', w * 0.5, 454)
-    g.fillStyle = '#08090d'
-    g.fillRect(40, 480, w - 80, 54)
-    g.strokeStyle = '#6a7073'
-    g.strokeRect(40, 478, w - 80, 54)
-    g.font = '700 54px "Times New Roman", Georgia, serif'
-    const waveText = String(this.level)
-    g.strokeStyle = '#061c28'
-    g.lineWidth = 2.4
-    g.strokeText(waveText, w * 0.5, 472)
-    g.fillStyle = '#67d6ea'
-    g.fillText(waveText, w * 0.5, 472)
-    g.fillStyle = 'rgba(161, 238, 248, 0.35)'
-    g.fillText(waveText, w * 0.5 + 1, 471)
-
-    if (this.player.autofireTime > 0) {
-      const progress = this.player.autofireTime / YUMMIES.DURATIONS.MACHINE_GUN
-      g.fillStyle = '#090a0e'
-      g.fillRect(44, 446, w - 88, 7)
-      g.fillStyle = '#b8842e'
-      g.fillRect(45, 447, (w - 90) * progress, 5)
-      g.fillStyle = '#f1ce7a'
-      g.fillRect(45, 447, (w - 90) * progress * 0.35, 5)
-    }
-
-    g.restore()
-  }
-
-  private buildSidebarTexture(w: number, h: number): HTMLCanvasElement {
-    const tile = document.createElement('canvas')
-    tile.width = w
-    tile.height = h
-    const t = tile.getContext('2d')
-    if (!t) return tile
-
-    const grad = t.createLinearGradient(0, 0, w, h)
-    grad.addColorStop(0, '#0a0a0b')
-    grad.addColorStop(0.3, '#1a1b1d')
-    grad.addColorStop(0.74, '#131416')
-    grad.addColorStop(1, '#09090a')
-    t.fillStyle = grad
-    t.fillRect(0, 0, w, h)
-
-    const img = t.createImageData(w, h)
-    const data = img.data
-    for (let yy = 0; yy < h; yy++) {
-      for (let xx = 0; xx < w; xx++) {
-        const i = (yy * w + xx) * 4
-        const grain = Math.sin((xx * 127.1 + yy * 311.7) * 0.11) * 0.5 + 0.5
-        const poresA = Math.sin((xx * 71.3 + yy * 91.9) * 0.27) * 0.5 + 0.5
-        const poresB = Math.sin((xx * 43.7 - yy * 57.3) * 0.2) * 0.5 + 0.5
-        const brushed = Math.sin(xx * 0.08 + yy * 0.36 + poresA * 4.2) * 0.5 + 0.5
-        const c = Math.max(0, Math.min(255, 9 + grain * 14 + poresA * 9 + poresB * 8 + brushed * 7))
-        data[i] = c
-        data[i + 1] = c
-        data[i + 2] = c + 1
-        data[i + 3] = 255
-      }
-    }
-    t.putImageData(img, 0, 0)
-
-    t.fillStyle = 'rgba(255,255,255,0.055)'
-    for (let i = 0; i < 1900; i++) {
-      const rx = Math.sin(i * 12.47) * 0.5 + 0.5
-      const ry = Math.sin(i * 7.11 + 3.2) * 0.5 + 0.5
-      const rw = 1 + (Math.sin(i * 3.9) * 0.5 + 0.5 > 0.75 ? 1 : 0)
-      t.fillRect(Math.floor(rx * w), Math.floor(ry * h), rw, 1)
-    }
-
-    const ridge = t.createLinearGradient(0, 0, w, 0)
-    ridge.addColorStop(0, 'rgba(255,255,255,0.06)')
-    ridge.addColorStop(0.45, 'rgba(255,255,255,0.01)')
-    ridge.addColorStop(1, 'rgba(0,0,0,0.06)')
-    t.fillStyle = ridge
-    t.fillRect(0, 0, w, h)
-
-    const shine = t.createLinearGradient(0, 0, w, h * 0.75)
-    shine.addColorStop(0, 'rgba(255,255,255,0.026)')
-    shine.addColorStop(0.35, 'rgba(255,255,255,0.014)')
-    shine.addColorStop(1, 'rgba(255,255,255,0)')
-    t.fillStyle = shine
-    t.fillRect(0, 0, w, h)
-
-    t.fillStyle = 'rgba(0, 0, 0, 0.18)'
-    t.fillRect(0, 0, w, 2)
-    t.fillRect(0, h - 2, w, 2)
-
-    return tile
   }
 
   private getVisualProfile(): VisualProfile {
     return this.settings.gameMode === 'classic' ? 'classic' : 'x'
   }
 
-  pause() {
+  // The 1995 wave counter has two digits and wraps after 99.
+  private displayWave(): number {
+    return ((Math.max(1, this.level) - 1) % 99) + 1
+  }
+
+  pause(by: 'key' | 'caps' | 'auto' | 'ui' = 'ui') {
     if (this.mode === 'playing') {
       this.mode = 'pause'
+      this.pausedBy = by
+      this.cheatBuffer = ''
+      this.keys.clear()
+      music.pause()
       this.notifyStateChange()
     }
   }
 
-  startNewGame() {
+  // seed: pass one to replay a specific field (daily challenge). Omit for a random run.
+  startNewGame(seed?: number) {
     this.mode = 'playing'
-    this.resetGame()
+    this.resetGame(false, seed)
     sfx.start()
+    music.start()
     this.notifyStateChange()
   }
 
   resume() {
     if (this.mode === 'pause') {
       this.mode = 'playing'
+      this.cheatBuffer = ''
+      music.resume()
       this.notifyStateChange()
     }
   }
 
+  abortToTitle() {
+    if (this.mode === 'title') return
+    this.mode = 'title'
+    music.stop()
+    // The field behind the title menu is a fresh backdrop, not the abandoned run.
+    this.resetGame(true)
+    this.notifyStateChange()
+  }
+
   updateSettings(newSettings: EngineSettings) {
+    const fieldRulesChanged =
+      newSettings.gameMode !== this.settings.gameMode ||
+      newSettings.reflectingMushrooms !== this.settings.reflectingMushrooms
     this.settings = { ...newSettings }
 
     // Apply volume settings
     sfx.setVolume(this.settings.sfxVolume / 100)
+    this.mouseInput.setRelative(this.settings.relativeMouse)
+    music.setVolume(this.settings.musicVolume / 100)
 
     // Update particle density
     this.particles.setDensity(this.settings.particleDensity)
@@ -2162,32 +2247,80 @@ export class Engine {
       this.chainHits = 0
       this.chainTimer = 0
     }
+
+    // On the title screen the field behind the menu is only a backdrop: rebuild
+    // it so the new rules and palette show immediately.
+    if (fieldRulesChanged && this.mode === 'title') this.resetGame(true)
+  }
+
+  private applyCheat(word: keyof typeof CHEATS) {
+    this.cheated = true
+    const effect = CHEATS[word]
+    if (effect === 'points') {
+      this.recordScore(CHEAT_POINTS)
+    } else if (effect === 'bonus') {
+      this.sidebarBonus = Math.min(MAX_BONUS_SCORE, this.sidebarBonus + CHEAT_BONUS)
+    } else if (effect === 'lives') {
+      this.lives = 8
+    } else {
+      this.player.addPowerUp(effect)
+    }
+    sfx.extra()
+    this.addPopup(FIELD_W / 2, FIELD_H / 2 + 40, `CHEAT: ${word}`)
+    this.notifyStateChange()
   }
 
   private notifyStateChange() {
+    this.stats.shots = this.shotsCarry + this.player.shotsFired
+    // Menus need the real cursor back.
+    if (this.mode !== 'playing') this.mouseInput.releaseLock()
     this.onStateChange?.({
       mode: this.mode,
       score: this.score,
       highScore: this.highScore,
       level: this.level,
+      seed: this.seed,
+      cheated: this.cheated,
+      stats: {
+        ...this.stats,
+        kills: { ...this.stats.kills },
+        waveScores: [...this.stats.waveScores],
+      },
     })
   }
 
   private bindInput() {
     const onDown = (e: KeyboardEvent) => {
+      // A menu panel owns the keyboard while it is open.
+      if (this.uiBlocked) return
+
+      // Paused: letters spell cheat words, as in the 1995 game.
+      if (this.mode === 'pause' && /^Key[A-Z]$/.test(e.code) && !e.metaKey && !e.ctrlKey) {
+        const letter = e.code.slice(3)
+        const typingCheat =
+          letter !== 'P' ||
+          this.pausedBy === 'caps' ||
+          (this.cheatBuffer.length > 0 && continuesCheat(this.cheatBuffer, 'P'))
+        if (typingCheat) {
+          const fed = feedCheatBuffer(this.cheatBuffer, letter)
+          this.cheatBuffer = fed.buffer
+          if (fed.word) this.applyCheat(fed.word)
+          return
+        }
+      }
+
       this.keys.add(e.code)
       if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space'].includes(e.code))
         e.preventDefault()
 
       if (e.code === 'KeyP') {
-        if (this.mode === 'playing') this.pause()
+        if (this.mode === 'playing') this.pause('key')
         else if (this.mode === 'pause') this.resume()
       } else if (e.code === 'CapsLock') {
-        if (this.mode === 'playing') this.pause()
+        if (this.mode === 'playing') this.pause('caps')
         else if (this.mode === 'pause') this.resume()
       } else if (e.code === 'Escape' && this.mode === 'playing') {
-        this.mode = 'title'
-        this.notifyStateChange()
+        this.abortToTitle()
       } else if (this.mode === 'title' && e.code === 'Space') {
         this.startNewGame()
       } else if (this.mode === 'gameover' && e.code === 'Space') {
@@ -2199,15 +2332,37 @@ export class Engine {
       this.keys.delete(e.code)
     }
 
+    // Leaving the tab or window pauses the run. Skipped under the headless
+    // harness, which never has focus.
+    const onHide = () => {
+      this.keys.clear()
+      if (isTestHarness()) return
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') return
+      this.pause('auto')
+    }
+    const onBlur = () => {
+      this.keys.clear()
+      if (isTestHarness()) return
+      this.pause('auto')
+    }
+
     window.addEventListener('keydown', onDown)
     window.addEventListener('keyup', onUp)
-    ;(this as any)._onDown = onDown
-    ;(this as any)._onUp = onUp
+    window.addEventListener('blur', onBlur)
+    document.addEventListener('visibilitychange', onHide)
+    this.unbindHandlers = () => {
+      window.removeEventListener('keydown', onDown)
+      window.removeEventListener('keyup', onUp)
+      window.removeEventListener('blur', onBlur)
+      document.removeEventListener('visibilitychange', onHide)
+    }
   }
 
+  private unbindHandlers: (() => void) | null = null
+
   private unbindInput() {
-    window.removeEventListener('keydown', (this as any)._onDown)
-    window.removeEventListener('keyup', (this as any)._onUp)
+    this.unbindHandlers?.()
+    this.unbindHandlers = null
   }
 }
 

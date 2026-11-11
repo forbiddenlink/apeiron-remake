@@ -1,4 +1,4 @@
-import { ENEMIES, GRID } from './GameConfig'
+import { ENEMIES, GRID, GRID_RATIO } from './GameConfig'
 import type { Rect } from './Types'
 
 export function getScobsterScore(distance: number): number {
@@ -25,13 +25,19 @@ export class Spider {
   private nextTurn = 0
   private baseSpeed: number
 
-  constructor(level: number, rand: () => number = Math.random) {
+  // avoidX: where the player is. Larry then comes in from the far side, so he
+  // can never appear on top of a crystal that is sitting near an edge.
+  constructor(level: number, rand: () => number = Math.random, avoidX?: number) {
     this.rand = rand
-    this.x = this.rand() < 0.5 ? -this.w : GRID.COLS * GRID.CELL
+    const fieldW = GRID.COLS * GRID.CELL
+    const fromLeft = this.rand() < 0.5
+    const enterLeft = avoidX === undefined ? fromLeft : avoidX > fieldW / 2
+    this.x = enterLeft ? -this.w : fieldW
     const minY = (GRID.ROWS - GRID.PLAYER_ROWS) * GRID.CELL
     const maxY = (GRID.ROWS - 1) * GRID.CELL - this.h
     this.y = minY + this.rand() * (maxY - minY)
-    this.baseSpeed = ENEMIES.LARRY_THE_SCOBSTER.SPEED_PX_PER_SEC_X + Math.min(80, level * 8) // Gentler scaling
+    this.baseSpeed =
+      ENEMIES.LARRY_THE_SCOBSTER.SPEED_PX_PER_SEC_X + Math.min(80, level * 8) * GRID_RATIO
     this.vx = (this.x < 0 ? 1 : -1) * this.baseSpeed
     this.vy = (this.rand() < 0.5 ? -1 : 1) * ENEMIES.LARRY_THE_SCOBSTER.SPEED_PX_PER_SEC_Y * 0.65
     this.nextTurn = 0.24 + this.rand() * 0.42

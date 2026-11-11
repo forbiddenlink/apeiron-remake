@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getLevelTuning, tickScobsterSpawn } from '../src/game/GameMode'
+import { ENHANCED_MAX_SCOBSTERS, getLevelTuning, tickScobsterSpawn } from '../src/game/GameMode'
 
 // Observed in original footage (youtube.com/watch?v=irQzOwsLlok) and the Apeiron X
 // port (youtube.com/watch?v=yG6W0hnXdPw): Larry the Scobster never shares the screen
@@ -30,8 +30,11 @@ describe('Classic Scobster cadence', () => {
 })
 
 describe('Enhanced Scobster cadence', () => {
-  it('still stacks Scobsters', () => {
+  it('still stacks Scobsters, up to two on screen', () => {
     expect(tickScobsterSpawn(0.5, 1, 1, 'enhanced').spawn).toBe(true)
+    const held = tickScobsterSpawn(0.5, 1, ENHANCED_MAX_SCOBSTERS, 'enhanced')
+    expect(held.spawn).toBe(false)
+    expect(held.timer).toBe(0.5)
   })
 
   it('keeps its pre-calibration spawn window', () => {

@@ -1,4 +1,4 @@
-import { ENEMIES, GRID } from './GameConfig'
+import { ENEMIES, GRID, GRID_RATIO } from './GameConfig'
 import type { Grid } from './Grid'
 
 export interface Segment {
@@ -6,6 +6,9 @@ export interface Segment {
   r: number
   dir: 1 | -1
   head: boolean
+  // Cell occupied before the last step. Render and hit-test interpolation only.
+  pc?: number
+  pr?: number
 }
 
 export class Centipede {
@@ -26,7 +29,8 @@ export class Centipede {
       })
     }
     const base = ENEMIES.PENTIPEDE.SPEED_CELLS_PER_SEC
-    this.speed = Math.min(base + level * 0.6, base + 4) // Speed increases with level, caps at base + 4
+    // Speed increases with level, capped. Scaled with the grid like every other speed.
+    this.speed = Math.min(base + level * 0.6 * GRID_RATIO, base + 4 * GRID_RATIO)
   }
 
   tick(dt: number, grid: Grid) {
@@ -37,6 +41,31 @@ export class Centipede {
     }
   }
 
+  // Where a segment is drawn and hit-tested: eased from the cell it left to the
+  // cell it occupies, by the fraction of the next step already accumulated.
+  segmentPixel(s: Segment): { x: number; y: number } {
+    const f = Math.max(0, Math.min(1, this.acc))
+    const pc = s.pc ?? s.c
+    const pr = s.pr ?? s.r
+    return {
+      x: (pc + (s.c - pc) * f) * GRID.CELL,
+      y: (pr + (s.r - pr) * f) * GRID.CELL,
+    }
+  }
+
+  // Fraction of the way through the current step, for leg animation.
+  get stepFraction(): number {
+    return Math.max(0, Math.min(1, this.acc))
+  }
+
+  // A chain cut off by a shot keeps this chain's step phase so it does not snap.
+  split(segments: Segment[], level: number): Centipede {
+    const next = new Centipede(0, level)
+    next.segments = segments
+    next.acc = this.acc
+    return next
+  }
+
   consumeTouchdown(): boolean {
     if (!this.touchedDown) return false
     this.touchedDown = false
@@ -45,6 +74,10 @@ export class Centipede {
 
   private step(grid: Grid) {
     const prev = this.segments.map((s) => ({ c: s.c, r: s.r }))
+    for (const s of this.segments) {
+      s.pc = s.c
+      s.pr = s.r
+    }
     const head = this.segments[0]
     const bottomRow = GRID.ROWS - 1
     // Once it touches down it weaves between the bottom row and the top of the

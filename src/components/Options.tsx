@@ -1,285 +1,203 @@
 import type React from 'react'
-import { useEffect, useState } from 'react'
-import type { GameMode } from '../game/GameMode'
+import type { GameSettings } from '../settings'
+import { Panel, SectionTitle } from './panels/Panel'
+import { COLORS } from './ui'
+
+export type { GameSettings } from '../settings'
 
 interface OptionsProps {
+  settings: GameSettings
+  onChange: (settings: GameSettings) => void
   onClose: () => void
-  onApply: (settings: GameSettings) => void
-  initialSettings: GameSettings
 }
 
-export interface GameSettings {
-  gameMode: GameMode
-  musicVolume: number
-  sfxVolume: number
-  particleDensity: 'low' | 'medium' | 'high'
-  screenShake: boolean
-  showHitboxes: boolean
-  showFPS: boolean
+const rowStyle: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  gap: 16,
+  padding: '7px 12px',
+  margin: '5px 0',
+  background: 'rgba(0,0,0,0.3)',
+  border: `1px solid ${COLORS.line}`,
+  borderRadius: 2,
 }
 
-export function Options({ onClose, onApply, initialSettings }: OptionsProps) {
-  const [settings, setSettings] = useState<GameSettings>(initialSettings)
-  const [selectedOption, setSelectedOption] = useState(0)
-
-  const handleKeyDown = (e: KeyboardEvent) => {
-    switch (e.key) {
-      case 'ArrowUp':
-        setSelectedOption((prev) => Math.max(0, prev - 1))
-        break
-      case 'ArrowDown':
-        setSelectedOption((prev) => Math.min(7, prev + 1))
-        break
-      case 'ArrowLeft':
-        adjustValue(-1)
-        break
-      case 'ArrowRight':
-        adjustValue(1)
-        break
-      case 'Enter':
-        // Keyboard selection is driven here; stop a focused button from also clicking.
-        e.preventDefault()
-        if (selectedOption === 7) {
-          onApply(settings)
-          onClose()
-        }
-        break
-      case 'Escape':
-        onClose()
-        break
-    }
-  }
-
-  useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [selectedOption, settings])
-
-  const adjustValue = (delta: number) => {
-    switch (selectedOption) {
-      case 0: // Game Mode
-        setSettings((prev) => ({
-          ...prev,
-          gameMode: prev.gameMode === 'classic' ? 'enhanced' : 'classic',
-        }))
-        break
-      case 1: // Music Volume
-        setSettings((prev) => ({
-          ...prev,
-          musicVolume: Math.max(0, Math.min(100, prev.musicVolume + delta * 10)),
-        }))
-        break
-      case 2: // SFX Volume
-        setSettings((prev) => ({
-          ...prev,
-          sfxVolume: Math.max(0, Math.min(100, prev.sfxVolume + delta * 10)),
-        }))
-        break
-      case 3: // Particle Density
-        setSettings((prev) => ({
-          ...prev,
-          particleDensity:
-            delta > 0
-              ? prev.particleDensity === 'low'
-                ? 'medium'
-                : 'high'
-              : prev.particleDensity === 'high'
-                ? 'medium'
-                : 'low',
-        }))
-        break
-      case 4: // Screen Shake
-        setSettings((prev) => ({ ...prev, screenShake: !prev.screenShake }))
-        break
-      case 5: // Show Hitboxes
-        setSettings((prev) => ({ ...prev, showHitboxes: !prev.showHitboxes }))
-        break
-      case 6: // Show FPS
-        setSettings((prev) => ({ ...prev, showFPS: !prev.showFPS }))
-        break
-    }
-  }
-
-  const optionStyle = (index: number): React.CSSProperties => ({
-    font: 'inherit',
-    boxSizing: 'content-box',
-    color: 'inherit',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '8px 16px',
-    margin: '6px 0',
-    width: '100%',
-    maxWidth: '400px',
-    background: selectedOption === index ? 'rgba(0, 185, 230, 0.12)' : 'rgba(0,0,0,0.22)',
-    borderRadius: '2px',
-    border: selectedOption === index ? '1px solid #41d6f0' : '1px solid #3f4b55',
-    cursor: 'pointer',
-    letterSpacing: '0.3px',
-  })
-
-  const renderSlider = (value: number) => {
-    const width = 200
-    const filled = Math.round((width * value) / 100)
-
-    return (
-      <div
-        style={{
-          width: `${width}px`,
-          height: '16px',
-          background: 'rgba(3, 7, 12, 0.8)',
-          borderRadius: '2px',
-          overflow: 'hidden',
-          border: '1px solid #4f5a63',
-        }}
-      >
-        <div
-          style={{
-            width: `${filled}px`,
-            height: '100%',
-            background: '#5ed8ef',
-            transition: 'width 0.2s ease',
-          }}
-        />
-      </div>
-    )
-  }
-
+function Toggle({
+  label,
+  hint,
+  value,
+  onChange,
+  onText = 'ON',
+  offText = 'OFF',
+}: {
+  label: string
+  hint?: string
+  value: boolean
+  onChange: (v: boolean) => void
+  onText?: string
+  offText?: string
+}) {
   return (
-    <div
+    <button
+      type="button"
+      role="switch"
+      aria-checked={value}
+      onClick={() => onChange(!value)}
       style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
+        ...rowStyle,
         width: '100%',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'rgba(0, 0, 0, 0.6)',
-        color: '#d7eef4',
-        fontFamily: '"Lucida Console", "Courier New", monospace',
-        fontSize: '17px',
-        zIndex: 100,
+        font: 'inherit',
+        color: 'inherit',
+        cursor: 'pointer',
+        textAlign: 'left',
       }}
     >
-      <h2 style={{ marginBottom: '24px', color: '#f0b555', letterSpacing: '1px' }}>OPTIONS</h2>
+      <span>
+        {label}
+        {hint ? (
+          <span style={{ display: 'block', color: COLORS.dim, fontSize: 12 }}>{hint}</span>
+        ) : null}
+      </span>
+      <span
+        style={{ color: value ? COLORS.cyan : '#8a949b', fontWeight: 700, whiteSpace: 'nowrap' }}
+      >
+        {value ? onText : offText}
+      </span>
+    </button>
+  )
+}
 
-      <div style={{ width: '100%', maxWidth: '400px' }}>
-        <button
-          type="button"
-          style={optionStyle(0)}
-          onClick={() => {
-            setSelectedOption(0)
-            adjustValue(1)
-          }}
-        >
-          <span>Style + Rules</span>
-          <span style={{ color: settings.gameMode === 'classic' ? '#9cff8b' : '#ff74bf' }}>
-            {settings.gameMode === 'classic' ? 'APEIRON' : 'APEIRON X'}
-          </span>
-        </button>
+function Slider({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: number
+  onChange: (v: number) => void
+}) {
+  return (
+    <label style={rowStyle}>
+      <span>{label}</span>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={5}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          style={{ width: 200, accentColor: '#5ed8ef' }}
+        />
+        <span style={{ width: 34, textAlign: 'right', color: COLORS.cyan }}>{value}</span>
+      </span>
+    </label>
+  )
+}
 
-        <button
-          type="button"
-          style={optionStyle(1)}
-          onClick={() => {
-            setSelectedOption(1)
-            adjustValue(1)
-          }}
-        >
-          <span>Music Volume</span>
-          {renderSlider(settings.musicVolume)}
-        </button>
+// Changes apply and save as you make them; there is nothing to confirm.
+export function Options({ settings, onChange, onClose }: OptionsProps) {
+  const set = <K extends keyof GameSettings>(key: K, value: GameSettings[K]) =>
+    onChange({ ...settings, [key]: value })
 
-        <button
-          type="button"
-          style={optionStyle(2)}
-          onClick={() => {
-            setSelectedOption(2)
-            adjustValue(1)
-          }}
-        >
-          <span>SFX Volume</span>
-          {renderSlider(settings.sfxVolume)}
-        </button>
+  const densities: GameSettings['particleDensity'][] = ['low', 'medium', 'high']
 
-        <button
-          type="button"
-          style={optionStyle(3)}
-          onClick={() => {
-            setSelectedOption(3)
-            adjustValue(1)
-          }}
-        >
-          <span>Particle Density</span>
-          <span style={{ color: '#31dcff' }}>{settings.particleDensity.toUpperCase()}</span>
-        </button>
+  return (
+    <Panel title="OPTIONS" onClose={onClose} closeLabel="DONE">
+      <SectionTitle>GAME</SectionTitle>
+      <Toggle
+        label="Style and rules"
+        hint="Apeiron: classic rules. Apeiron X: combos, coin frenzies, faster enemies."
+        value={settings.gameMode === 'classic'}
+        onChange={(v) => set('gameMode', v ? 'classic' : 'enhanced')}
+        onText="APEIRON"
+        offText="APEIRON X"
+      />
+      <Toggle
+        label="Reflecting mushrooms"
+        hint="Late waves. They bounce your shot back at you, as in the original."
+        value={settings.reflectingMushrooms}
+        onChange={(v) => set('reflectingMushrooms', v)}
+      />
 
-        <button
-          type="button"
-          style={optionStyle(4)}
-          onClick={() => {
-            setSelectedOption(4)
-            adjustValue(1)
-          }}
-        >
-          <span>Screen Shake</span>
-          <span style={{ color: settings.screenShake ? '#31dcff' : '#666' }}>
-            {settings.screenShake ? 'ON' : 'OFF'}
-          </span>
-        </button>
+      <Toggle
+        label="Mouse control"
+        hint="Captured: the cursor is hidden and the crystal follows your hand, as on the Mac. Esc frees it."
+        value={settings.relativeMouse}
+        onChange={(v) => set('relativeMouse', v)}
+        onText="CAPTURED"
+        offText="FOLLOW CURSOR"
+      />
 
-        <button
-          type="button"
-          style={optionStyle(5)}
-          onClick={() => {
-            setSelectedOption(5)
-            adjustValue(1)
-          }}
-        >
-          <span>Show Hitboxes</span>
-          <span style={{ color: settings.showHitboxes ? '#31dcff' : '#666' }}>
-            {settings.showHitboxes ? 'ON' : 'OFF'}
-          </span>
-        </button>
+      <SectionTitle>SOUND</SectionTitle>
+      <Slider
+        label="Music volume"
+        value={settings.musicVolume}
+        onChange={(v) => set('musicVolume', v)}
+      />
+      <Slider
+        label="Effects volume"
+        value={settings.sfxVolume}
+        onChange={(v) => set('sfxVolume', v)}
+      />
 
-        <button
-          type="button"
-          style={optionStyle(6)}
-          onClick={() => {
-            setSelectedOption(6)
-            adjustValue(1)
-          }}
-        >
-          <span>Show FPS</span>
-          <span style={{ color: settings.showFPS ? '#31dcff' : '#666' }}>
-            {settings.showFPS ? 'ON' : 'OFF'}
-          </span>
-        </button>
+      <SectionTitle>DISPLAY</SectionTitle>
+      <Toggle
+        label="Reduce flashing"
+        hint="Calms the rainbow mushroom effect, wave-clear flash and respawn blink."
+        value={settings.reduceFlashing}
+        onChange={(v) => set('reduceFlashing', v)}
+      />
+      <Toggle
+        label="3D sprites"
+        hint="Characters rendered from 3D models. Off shows the flat drawn sprites."
+        value={settings.sprites3d}
+        onChange={(v) => set('sprites3d', v)}
+      />
+      <Toggle
+        label="Moving backdrops"
+        hint="Slow drifting light in the field behind the mushrooms."
+        value={settings.movingBackdrops}
+        onChange={(v) => set('movingBackdrops', v)}
+      />
+      <Toggle
+        label="Screen shake"
+        value={settings.screenShake}
+        onChange={(v) => set('screenShake', v)}
+      />
+      <div style={rowStyle}>
+        <span>Particle density</span>
+        <span style={{ display: 'flex', gap: 6 }}>
+          {densities.map((d) => (
+            <button
+              key={d}
+              type="button"
+              aria-pressed={settings.particleDensity === d}
+              onClick={() => set('particleDensity', d)}
+              style={{
+                font: 'inherit',
+                cursor: 'pointer',
+                padding: '2px 10px',
+                color: settings.particleDensity === d ? '#061a20' : COLORS.text,
+                background: settings.particleDensity === d ? '#5ed8ef' : 'transparent',
+                border: `1px solid ${COLORS.line}`,
+                borderRadius: 2,
+              }}
+            >
+              {d.toUpperCase()}
+            </button>
+          ))}
+        </span>
       </div>
 
-      <button
-        type="button"
-        onClick={() => {
-          onApply(settings)
-          onClose()
-        }}
-        style={{
-          marginTop: '30px',
-          font: 'inherit',
-          boxSizing: 'content-box',
-          padding: '10px 20px',
-          border: '2px solid #41d6f0',
-          borderRadius: '2px',
-          cursor: 'pointer',
-          color: '#b8e8f3',
-          background: selectedOption === 7 ? 'rgba(0, 185, 230, 0.12)' : 'rgba(0,0,0,0.28)',
-        }}
-      >
-        APPLY & CLOSE
-      </button>
-    </div>
+      <SectionTitle>DEBUG</SectionTitle>
+      <Toggle
+        label="Show hitboxes"
+        value={settings.showHitboxes}
+        onChange={(v) => set('showHitboxes', v)}
+      />
+      <Toggle label="Show FPS" value={settings.showFPS} onChange={(v) => set('showFPS', v)} />
+    </Panel>
   )
 }
